@@ -1,0 +1,19 @@
+spec_version: "1.0"
+project: OpenReader
+module: model_downloader
+
+requirements:
+  - id: REQ-DL-01
+    title: "Descarga e Instalación en Primer Arranque"
+    description: "Descargar los binarios del modelo ONNX y tokens la primera vez que se elija la voz neuronal."
+    constraints:
+      - "Modelos NO incluidos dentro del APK (APK liviano < 15 MB)."
+      - "Guardar exclusivamente en context.filesDir + '/models/' (memoria interna privada)."
+
+  - id: REQ-DL-02
+    title: "Verificación e Integridad"
+    description: "Asegurar que el modelo esté completo antes de inicializar el runtime."
+    actions:
+      - "Descargar vía Ktor Client en un ForegroundService con notificación de progreso."
+      - "Calcular suma de comprobación SHA-256 al finalizar la descarga."
+      - "Si el hash no coincide, eliminar el archivo corrupto y permitir reintentar."

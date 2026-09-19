@@ -1,0 +1,35 @@
+direction: down
+
+grid-rows: 3
+
+capa_ui: Interfaz de Usuario (Compose) {
+  poco_f7: POCO F7 (Compact Width)
+  matepad: MatePad 12 X (Expanded Width)
+}
+
+capa_core: Núcleo y Lógica (Core) {
+  pdf_engine: PDF Engine (PdfBox) {
+    shape: process
+  }
+  tts_service: Neural TTS Service {
+    shape: process
+  }
+  db_room: Room Database (SHA-256 Progress) {
+    shape: database
+  }
+}
+
+capa_storage: Almacenamiento Local {
+  storage_access: Storage Access Framework (SAF) {
+    shape: folder
+  }
+  internal_models: Internal Private Dir (/models/*.onnx) {
+    shape: folder
+  }
+}
+
+capa_ui.poco_f7 -> capa_core.pdf_engine: Leer PDF
+capa_ui.matepad -> capa_core.pdf_engine: Leer PDF
+capa_core.pdf_engine -> capa_storage.storage_access: Cargar Stream PDF
+capa_core.tts_service -> capa_storage.internal_models: Cargar Modelo Piper
+capa_core.tts_service -> capa_core.db_room: Guardar posición (Párrafo + Char)

@@ -1,0 +1,25 @@
+# Gradle & Build Output
+*.apk
+*.aar
+*.bundle
+.gradle/
+build/
+app/build/
+
+# IDE & Config
+.idea/
+*.iml
+.DS_Store
+*.swp
+local.properties
+
+# Android Studio & Kotlin
+.navigation/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Assets pesados / Modelos locales (NO incluir en el repo)
+**/assets/models/*.onnx
+**/assets/models/*.bin
+**/assets/models/*.tar.gz

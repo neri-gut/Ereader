@@ -1,0 +1,26 @@
+spec_version: "1.0"
+project: OpenReader
+module: adaptive_ui
+
+requirements:
+  - id: REQ-UI-01
+    title: "Layout Adaptativo por WindowSizeClass"
+    description: "Adaptar la vista de lectura y los controles según el tamaño físico de la pantalla."
+    adaptations:
+      - device: "POCO F7 (Compact Width < 600dp)"
+        layout:
+          - "Barra de controles TTS anclada al borde inferior en bottom sheet plegable."
+          - "Texto en ancho completo (100% screen width)."
+          - "Menu de ajustes en ModalBottomSheet."
+      - device: "MatePad 12 X (Expanded Width >= 840dp)"
+        layout:
+          - "Columna de texto centrada limitada a 42rem - 48rem (~768dp)."
+          - "Barra lateral (Navigation Rail) o panel lateral flotante para biblioteca y ajustes."
+          - "Controles TTS flotantes o integrados en la barra superior."
+
+  - id: REQ-UI-02
+    title: "Experiencia de Lectura sin Distracciones"
+    description: "Ocultar paneles y barras del sistema al desplazarse por el texto para maximizar el área de lectura."
+    gestures:
+      - "Tap simple en el centro: Mostrar/Ocultar controles superiores e inferiores."
+      - "Scroll continuo: Ocultar barras automáticamente."
