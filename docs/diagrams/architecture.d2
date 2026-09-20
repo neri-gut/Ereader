@@ -9,22 +9,22 @@ capa_ui: Interfaz de Usuario (Compose) {
 
 capa_core: Núcleo y Lógica (Core) {
   pdf_engine: PDF Engine (PdfBox) {
-    shape: process
+    shape: rectangle
   }
   tts_service: Neural TTS Service {
-    shape: process
+    shape: rectangle
   }
   db_room: Room Database (SHA-256 Progress) {
-    shape: database
+    shape: cylinder
   }
 }
 
 capa_storage: Almacenamiento Local {
   storage_access: Storage Access Framework (SAF) {
-    shape: folder
+    shape: package
   }
   internal_models: Internal Private Dir (/models/*.onnx) {
-    shape: folder
+    shape: package
   }
 }
 
