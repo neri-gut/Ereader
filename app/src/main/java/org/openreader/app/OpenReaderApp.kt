@@ -1,24 +1,31 @@
 package org.openreader.app
 
 import android.net.Uri
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.NavigationRail
-import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.launch
 import org.openreader.app.ui.SettingsScreen
 import org.openreader.core.model.TTSEngineType
 import org.openreader.feature.downloader.DownloaderScreen
@@ -35,6 +42,7 @@ private enum class AppTab {
     SETTINGS
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OpenReaderApp(
     container: AppContainer,
@@ -43,6 +51,8 @@ fun OpenReaderApp(
     val context = LocalContext.current
     var tab by remember { mutableStateOf(AppTab.LIBRARY) }
     var hasOpenDocument by remember { mutableStateOf(false) }
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
     val libraryViewModel: LibraryViewModel = viewModel(factory = container.libraryFactory)
     val readerViewModel: ReaderViewModel = viewModel(factory = container.readerFactory)
     val downloaderViewModel: DownloaderViewModel = viewModel(factory = container.downloaderFactory)
@@ -50,42 +60,70 @@ fun OpenReaderApp(
     val theme by readerViewModel.theme.collectAsStateWithLifecycle()
     val ttsConfig by readerViewModel.ttsConfig.collectAsStateWithLifecycle()
 
-    Scaffold(modifier = Modifier.fillMaxSize()) { padding ->
-        Row(
-            Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
-            NavigationRail(modifier = Modifier.fillMaxHeight()) {
-                NavigationRailItem(
+    fun goTo(destination: AppTab) {
+        tab = destination
+        scope.launch { drawerState.close() }
+    }
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        gesturesEnabled = tab != AppTab.READER || drawerState.isOpen,
+        drawerContent = {
+            ModalDrawerSheet {
+                Text(
+                    text = "OpenReader",
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp)
+                )
+                NavigationDrawerItem(
+                    label = { Text("Biblioteca") },
                     selected = tab == AppTab.LIBRARY,
-                    onClick = { tab = AppTab.LIBRARY },
-                    icon = { Text("Lib") },
-                    label = { Text("Biblioteca") }
+                    onClick = { goTo(AppTab.LIBRARY) }
                 )
-                NavigationRailItem(
+                NavigationDrawerItem(
+                    label = { Text("Seguir leyendo") },
                     selected = tab == AppTab.READER,
-                    onClick = { if (hasOpenDocument) tab = AppTab.READER },
-                    enabled = hasOpenDocument,
-                    icon = { Text("Leer") },
-                    label = { Text("Lector") }
+                    onClick = { if (hasOpenDocument) goTo(AppTab.READER) }
                 )
-                NavigationRailItem(
+                NavigationDrawerItem(
+                    label = { Text("Voces") },
                     selected = tab == AppTab.VOICES,
-                    onClick = { tab = AppTab.VOICES },
-                    icon = { Text("Voz") },
-                    label = { Text("Voces") }
+                    onClick = { goTo(AppTab.VOICES) }
                 )
-                NavigationRailItem(
+                NavigationDrawerItem(
+                    label = { Text("Ajustes") },
                     selected = tab == AppTab.SETTINGS,
-                    onClick = { tab = AppTab.SETTINGS },
-                    icon = { Text("Cfg") },
-                    label = { Text("Ajustes") }
+                    onClick = { goTo(AppTab.SETTINGS) }
                 )
             }
+        }
+    ) {
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            topBar = {
+                if (tab != AppTab.READER) {
+                    TopAppBar(
+                        title = {
+                            Text(
+                                when (tab) {
+                                    AppTab.LIBRARY -> "Biblioteca"
+                                    AppTab.VOICES -> "Voces"
+                                    AppTab.SETTINGS -> "Ajustes"
+                                    AppTab.READER -> "Lector"
+                                }
+                            )
+                        },
+                        navigationIcon = {
+                            TextButton(onClick = { scope.launch { drawerState.open() } }) {
+                                Text("Menú")
+                            }
+                        }
+                    )
+                }
+            }
+        ) { padding ->
             val contentModifier = Modifier
-                .weight(1f)
                 .fillMaxSize()
+                .padding(padding)
             when (tab) {
                 AppTab.LIBRARY -> LibraryScreen(
                     documents = documents,
@@ -104,6 +142,7 @@ fun OpenReaderApp(
                     onImportTree = { uri -> libraryViewModel.importTree(context, uri) },
                     onToggleFavorite = libraryViewModel::toggleFavorite,
                     onRemove = libraryViewModel::remove,
+                    showPageTitle = false,
                     modifier = contentModifier
                 )
                 AppTab.READER -> {
@@ -116,6 +155,7 @@ fun OpenReaderApp(
                         audioState = audio,
                         widthSizeClass = widthSizeClass,
                         neuralReady = readerViewModel.availableNeuralVoices().isNotEmpty(),
+                        onOpenMenu = { scope.launch { drawerState.open() } },
                         onToggleNative = readerViewModel::toggleNativePdf,
                         onPdfPageMode = readerViewModel::setPdfPageMode,
                         onTtsChange = readerViewModel::updateTts,
@@ -124,7 +164,7 @@ fun OpenReaderApp(
                         onResume = readerViewModel::resume,
                         onPrevious = readerViewModel::skipPrevious,
                         onNext = readerViewModel::skipNext,
-                        onOpenVoices = { tab = AppTab.VOICES },
+                        onOpenVoices = { goTo(AppTab.VOICES) },
                         onToggleTtsBar = readerViewModel::toggleTtsBar,
                         onSelectParagraph = readerViewModel::selectParagraph,
                         modifier = contentModifier
@@ -142,7 +182,7 @@ fun OpenReaderApp(
                                     engineType = TTSEngineType.SHERPA_ONNX_PIPER
                                 )
                             )
-                            tab = if (hasOpenDocument) AppTab.READER else AppTab.LIBRARY
+                            goTo(if (hasOpenDocument) AppTab.READER else AppTab.LIBRARY)
                         },
                         modifier = contentModifier
                     )
@@ -153,7 +193,7 @@ fun OpenReaderApp(
                     neuralReady = readerViewModel.availableNeuralVoices().isNotEmpty(),
                     onThemeChange = readerViewModel::updateTheme,
                     onTtsChange = readerViewModel::updateTts,
-                    onOpenVoices = { tab = AppTab.VOICES },
+                    onOpenVoices = { goTo(AppTab.VOICES) },
                     modifier = contentModifier
                 )
             }

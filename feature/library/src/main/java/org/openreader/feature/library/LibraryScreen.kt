@@ -61,6 +61,7 @@ fun LibraryScreen(
     onImportTree: (Uri) -> Unit,
     onToggleFavorite: (LibraryDocument) -> Unit,
     onRemove: (String) -> Unit,
+    showPageTitle: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -97,16 +98,18 @@ fun LibraryScreen(
 
     Box(modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
-            Text(
-                text = "Biblioteca",
-                style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier.padding(start = 20.dp, top = 16.dp, end = 20.dp)
-            )
+            if (showPageTitle) {
+                Text(
+                    text = "Biblioteca",
+                    style = MaterialTheme.typography.headlineMedium,
+                    modifier = Modifier.padding(start = 20.dp, top = 16.dp, end = 20.dp)
+                )
+            }
             Text(
                 text = if (documents.isEmpty()) "Añade PDFs para empezar" else "${documents.size} documentos",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 20.dp, top = 4.dp, bottom = 8.dp)
+                modifier = Modifier.padding(start = 20.dp, top = 8.dp, bottom = 8.dp)
             )
             Row(
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),

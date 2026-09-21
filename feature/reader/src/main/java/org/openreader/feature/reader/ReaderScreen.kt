@@ -40,6 +40,7 @@ fun ReaderScreen(
     audioState: AudioState,
     widthSizeClass: WindowWidthSizeClass,
     neuralReady: Boolean,
+    onOpenMenu: () -> Unit,
     onToggleNative: () -> Unit,
     onPdfPageMode: (PdfPageMode) -> Unit,
     onTtsChange: (TTSConfig) -> Unit,
@@ -66,6 +67,7 @@ fun ReaderScreen(
             showNativePdf = state.showNativePdf,
             showTtsBar = state.showTtsBar,
             pdfPageMode = state.pdfPageMode,
+            onOpenMenu = onOpenMenu,
             onToggleNative = onToggleNative,
             onToggleTts = onToggleTtsBar,
             onPdfPageMode = onPdfPageMode
