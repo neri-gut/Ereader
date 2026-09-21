@@ -42,7 +42,8 @@ data class ReaderUiState(
     val showTtsBar: Boolean = false,
     val localPdfPath: String? = null,
     val extractPage: Int = 0,
-    val extractTotal: Int = 0
+    val extractTotal: Int = 0,
+    val pdfPageMode: PdfPageMode = PdfPageMode.CONTINUOUS
 )
 
 class ReaderViewModel(
@@ -119,7 +120,7 @@ class ReaderViewModel(
             try {
                 val file = PdfTextExtractor.materialize(context, uri)
                 _uiState.update { it.copy(localPdfPath = file.absolutePath) }
-                val hash = file.inputStream().use { hasher.hash(it) }
+                val hash = file.inputStream().use { hasher.hash(it, file.length()) }
                 val saved = progressRepository.getProgress(hash)
                 val paragraphs = mutableListOf<ParagraphData>()
                 extractor.extractFromFile(file) { page, total ->
@@ -171,6 +172,10 @@ class ReaderViewModel(
 
     fun toggleNativePdf() {
         _uiState.update { it.copy(showNativePdf = !it.showNativePdf) }
+    }
+
+    fun setPdfPageMode(mode: PdfPageMode) {
+        _uiState.update { it.copy(pdfPageMode = mode) }
     }
 
     fun selectParagraph(index: Int) {

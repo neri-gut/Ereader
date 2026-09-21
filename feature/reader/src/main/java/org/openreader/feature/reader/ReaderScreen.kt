@@ -8,25 +8,16 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.SpanStyle
@@ -40,7 +31,7 @@ import org.openreader.core.model.ParagraphData
 import org.openreader.core.model.ReaderTheme
 import org.openreader.core.model.TTSConfig
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3WindowSizeClassApi::class)
+@OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
 @Composable
 fun ReaderScreen(
     state: ReaderUiState,
@@ -49,9 +40,8 @@ fun ReaderScreen(
     audioState: AudioState,
     widthSizeClass: WindowWidthSizeClass,
     neuralReady: Boolean,
-    onBack: () -> Unit,
     onToggleNative: () -> Unit,
-    onThemeChange: (ReaderTheme) -> Unit,
+    onPdfPageMode: (PdfPageMode) -> Unit,
     onTtsChange: (TTSConfig) -> Unit,
     onPlay: () -> Unit,
     onPause: () -> Unit,
@@ -65,8 +55,6 @@ fun ReaderScreen(
 ) {
     val expanded = widthSizeClass == WindowWidthSizeClass.Expanded
     val palette = colorsFor(theme.type)
-    var showSettings by remember { mutableStateOf(false) }
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     Column(
         modifier = modifier
@@ -77,12 +65,23 @@ fun ReaderScreen(
             fileName = state.fileName,
             showNativePdf = state.showNativePdf,
             showTtsBar = state.showTtsBar,
-            onBack = onBack,
+            pdfPageMode = state.pdfPageMode,
             onToggleNative = onToggleNative,
-            onSettings = { showSettings = true },
-            onVoices = onOpenVoices,
-            onToggleTts = onToggleTtsBar
+            onToggleTts = onToggleTtsBar,
+            onPdfPageMode = onPdfPageMode
         )
+        if (state.loading) {
+            val label = if (state.extractTotal > 0) {
+                "Extrayendo texto ${state.extractPage}/${state.extractTotal}"
+            } else {
+                "Abriendo documento…"
+            }
+            Text(
+                label,
+                color = palette.text,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+            )
+        }
         ReaderBody(
             state = state,
             theme = theme,
@@ -104,21 +103,7 @@ fun ReaderScreen(
                 onRateChange = { onTtsChange(ttsConfig.copy(speechRate = it)) },
                 onEngineChange = { onTtsChange(ttsConfig.copy(engineType = it)) },
                 onOpenVoices = onOpenVoices,
-                modifier = Modifier
-                    .navigationBarsPadding()
-                    .imePadding()
-            )
-        }
-    }
-    if (showSettings) {
-        ModalBottomSheet(
-            onDismissRequest = { showSettings = false },
-            sheetState = sheetState
-        ) {
-            ThemeSettingsPanel(
-                theme = theme,
-                expandedLayout = expanded,
-                onChange = onThemeChange
+                modifier = Modifier.imePadding()
             )
         }
     }
@@ -142,6 +127,7 @@ private fun ReaderBody(
             state.showNativePdf && state.contentUri.isNotBlank() -> PdfNativePreview(
                 uri = Uri.parse(state.contentUri),
                 localPath = state.localPdfPath,
+                pageMode = state.pdfPageMode,
                 modifier = Modifier.fillMaxSize()
             )
             state.paragraphs.isNotEmpty() -> ContinuousText(
@@ -171,20 +157,6 @@ private fun ReaderBody(
                 state.error,
                 color = palette.text,
                 modifier = Modifier.padding(24.dp)
-            )
-        }
-        if (state.loading && state.showNativePdf) {
-            val progress = if (state.extractTotal > 0) {
-                "Extrayendo texto ${state.extractPage}/${state.extractTotal}"
-            } else {
-                "Preparando documento…"
-            }
-            Text(
-                progress,
-                color = palette.text,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(16.dp)
             )
         }
         if (state.error == "NEEDS_VOICE") {

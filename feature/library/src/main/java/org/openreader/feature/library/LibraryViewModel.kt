@@ -24,11 +24,18 @@ class LibraryViewModel(
         .observeLibrary()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    fun importDocument(context: Context, uri: Uri, displayName: String) {
+    fun importDocument(
+        context: Context,
+        uri: Uri,
+        displayName: String,
+        openWhenReady: ((LibraryDocument) -> Unit)? = null
+    ) {
         viewModelScope.launch(Dispatchers.IO) {
             persistReadPermission(context.contentResolver, uri)
-            val hash = context.contentResolver.openInputStream(uri)?.use { hasher.hash(it) }
+            val size = queryFileSize(context.contentResolver, uri)
+            val hash = context.contentResolver.openInputStream(uri)?.use { hasher.hash(it, size) }
                 ?: return@launch
+            PdfCoverLoader.invalidate(context, hash, uri.toString())
             val existing = progressRepository.getProgress(hash)
             val progress = existing?.copy(
                 fileName = displayName,
@@ -41,6 +48,15 @@ class LibraryViewModel(
                 totalParagraphs = 0
             )
             progressRepository.saveProgress(progress, uri.toString())
+            val saved = progressRepository.getDocument(hash) ?: LibraryDocument(
+                fileHash = hash,
+                fileName = displayName,
+                contentUri = uri.toString(),
+                lastOpenedTimestamp = System.currentTimeMillis()
+            )
+            openWhenReady?.let { callback ->
+                launch(Dispatchers.Main) { callback(saved) }
+            }
         }
     }
 

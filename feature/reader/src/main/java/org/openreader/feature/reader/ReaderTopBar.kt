@@ -1,19 +1,13 @@
 package org.openreader.feature.reader
 
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
@@ -25,71 +19,53 @@ fun ReaderTopBar(
     fileName: String,
     showNativePdf: Boolean,
     showTtsBar: Boolean,
-    onBack: () -> Unit,
+    pdfPageMode: PdfPageMode,
     onToggleNative: () -> Unit,
-    onSettings: () -> Unit,
-    onVoices: () -> Unit,
     onToggleTts: () -> Unit,
+    onPdfPageMode: (PdfPageMode) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var menuOpen by remember { mutableStateOf(false) }
-    Row(
+    Column(
         modifier = modifier
             .fillMaxWidth()
-            .statusBarsPadding()
-            .padding(horizontal = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 12.dp, vertical = 4.dp)
     ) {
-        TextButton(onClick = onBack) { Text("Atrás") }
         Text(
-            text = fileName.ifBlank { "Lectura" },
+            text = fileName.removeSuffix(".pdf").ifBlank { "Lectura" },
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            fontSize = 16.sp,
-            modifier = Modifier
-                .weight(1f)
-                .padding(horizontal = 4.dp)
+            fontSize = 16.sp
         )
-        Box {
-            TextButton(onClick = { menuOpen = true }) { Text("Menú") }
-            DropdownMenu(
-                expanded = menuOpen,
-                onDismissRequest = { menuOpen = false }
-            ) {
-                DropdownMenuItem(
-                    text = { Text(if (showNativePdf) "Leer texto" else "Ver PDF original") },
-                    onClick = {
-                        menuOpen = false
-                        onToggleNative()
-                    }
+        Row(
+            modifier = Modifier.padding(top = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            FilterChip(
+                selected = !showNativePdf,
+                onClick = { if (showNativePdf) onToggleNative() },
+                label = { Text("Texto") }
+            )
+            FilterChip(
+                selected = showNativePdf,
+                onClick = { if (!showNativePdf) onToggleNative() },
+                label = { Text("PDF") }
+            )
+            FilterChip(
+                selected = showTtsBar,
+                onClick = onToggleTts,
+                label = { Text("Audio") }
+            )
+            if (showNativePdf) {
+                FilterChip(
+                    selected = pdfPageMode == PdfPageMode.CONTINUOUS,
+                    onClick = { onPdfPageMode(PdfPageMode.CONTINUOUS) },
+                    label = { Text("Continuo") }
                 )
-                DropdownMenuItem(
-                    text = { Text("Ajustes de lectura") },
-                    onClick = {
-                        menuOpen = false
-                        onSettings()
-                    }
-                )
-                DropdownMenuItem(
-                    text = { Text(if (showTtsBar) "Ocultar audio" else "Audio y voz") },
-                    onClick = {
-                        menuOpen = false
-                        onToggleTts()
-                    }
-                )
-                DropdownMenuItem(
-                    text = { Text("Voces neuronales") },
-                    onClick = {
-                        menuOpen = false
-                        onVoices()
-                    }
-                )
-                DropdownMenuItem(
-                    text = { Text("Biblioteca") },
-                    onClick = {
-                        menuOpen = false
-                        onBack()
-                    }
+                FilterChip(
+                    selected = pdfPageMode == PdfPageMode.PAGED,
+                    onClick = { onPdfPageMode(PdfPageMode.PAGED) },
+                    label = { Text("Páginas") }
                 )
             }
         }

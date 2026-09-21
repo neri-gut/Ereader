@@ -4,7 +4,6 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
-import android.os.ParcelFileDescriptor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -12,8 +11,7 @@ import java.io.File
 object PdfCoverLoader {
     suspend fun load(context: Context, contentUri: String, fileHash: String): Bitmap? =
         withContext(Dispatchers.IO) {
-            val cache = File(context.cacheDir, "covers").apply { mkdirs() }
-            val cached = File(cache, "${fileHash.take(24)}.jpg")
+            val cached = cacheFile(context, fileHash, contentUri)
             if (cached.exists() && cached.length() > 0) {
                 return@withContext android.graphics.BitmapFactory.decodeFile(cached.absolutePath)
             }
@@ -38,4 +36,15 @@ object PdfCoverLoader {
                 }
             }
         }
+
+    fun invalidate(context: Context, fileHash: String, contentUri: String) {
+        cacheFile(context, fileHash, contentUri).delete()
+    }
+
+    private fun cacheFile(context: Context, fileHash: String, contentUri: String): File {
+        val dir = File(context.cacheDir, "covers").apply { mkdirs() }
+        val uriKey = contentUri.hashCode().toUInt().toString(16)
+        val hashKey = fileHash.takeLast(16).ifBlank { "none" }
+        return File(dir, "cover-$hashKey-$uriKey.jpg")
+    }
 }

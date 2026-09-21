@@ -38,6 +38,14 @@ class DocumentIdHasherTest {
     }
 
     @Test
+    fun differentFileSizeProducesDifferentHash() {
+        val payload = ByteArray(2048) { 3 }
+        val small = DocumentIdHasher.hashBlocking(ByteArrayInputStream(payload), fileSize = 2048)
+        val large = DocumentIdHasher.hashBlocking(ByteArrayInputStream(payload), fileSize = 4096)
+        assertNotEquals(small, large)
+    }
+
+    @Test
     fun matchesRawSha256ForSmallPayload() {
         val payload = byteArrayOf(10, 20, 30, 40, 50)
         val expected = MessageDigest.getInstance("SHA-256")

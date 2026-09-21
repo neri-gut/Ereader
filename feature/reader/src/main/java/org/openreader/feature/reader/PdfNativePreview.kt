@@ -9,11 +9,8 @@ import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,7 +21,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -40,7 +36,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.dp
@@ -62,12 +57,11 @@ enum class PdfPageMode { CONTINUOUS, PAGED }
 fun PdfNativePreview(
     uri: Uri,
     localPath: String?,
+    pageMode: PdfPageMode,
     modifier: Modifier = Modifier
 ) {
     var pageCount by remember(localPath) { mutableIntStateOf(0) }
     var error by remember(localPath) { mutableStateOf<String?>(null) }
-    var mode by remember { mutableStateOf(PdfPageMode.CONTINUOUS) }
-    var chrome by remember { mutableStateOf(true) }
     var viewWidth by remember { mutableIntStateOf(0) }
     var session by remember { mutableStateOf<PdfRenderSession?>(null) }
     var aspect by remember { mutableStateOf(1f / 1.414f) }
@@ -103,9 +97,6 @@ fun PdfNativePreview(
             .fillMaxSize()
             .background(Color(0xFF2B2B2B))
             .onSizeChanged { viewWidth = it.width }
-            .pointerInput(Unit) {
-                detectTapGestures(onTap = { chrome = !chrome })
-            }
     ) {
         when {
             localPath.isNullOrBlank() -> Text(
@@ -123,7 +114,7 @@ fun PdfNativePreview(
                 color = Color.White,
                 modifier = Modifier.align(Alignment.Center)
             )
-            mode == PdfPageMode.CONTINUOUS -> ContinuousPages(
+            pageMode == PdfPageMode.CONTINUOUS -> ContinuousPages(
                 session = session,
                 pageCount = pageCount,
                 viewWidth = viewWidth,
@@ -134,36 +125,12 @@ fun PdfNativePreview(
                 pageCount = pageCount,
                 viewWidth = viewWidth,
                 aspect = aspect,
-                chrome = chrome
+                chrome = true
             )
         }
         LaunchedEffect(session) {
             val current = session ?: return@LaunchedEffect
             aspect = current.pageAspect(0) ?: aspect
-        }
-        if (chrome && pageCount > 0) {
-            Row(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(16.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(Color.Black.copy(alpha = 0.62f))
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                    .pointerInput(Unit) { detectTapGestures(onTap = {}) },
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                FilterChip(
-                    selected = mode == PdfPageMode.CONTINUOUS,
-                    onClick = { mode = PdfPageMode.CONTINUOUS },
-                    label = { Text("Continuo") }
-                )
-                FilterChip(
-                    selected = mode == PdfPageMode.PAGED,
-                    onClick = { mode = PdfPageMode.PAGED },
-                    label = { Text("Páginas") }
-                )
-            }
         }
     }
 }

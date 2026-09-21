@@ -16,6 +16,16 @@ fun persistReadPermission(resolver: ContentResolver, uri: Uri) {
     runCatching { resolver.takePersistableUriPermission(uri, flags) }
 }
 
+fun queryFileSize(resolver: ContentResolver, uri: Uri): Long {
+    resolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { cursor ->
+        if (cursor.moveToFirst()) {
+            val index = cursor.getColumnIndex(OpenableColumns.SIZE)
+            if (index >= 0 && !cursor.isNull(index)) return cursor.getLong(index)
+        }
+    }
+    return -1L
+}
+
 fun queryDisplayName(resolver: ContentResolver, uri: Uri): String {
     resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
         if (cursor.moveToFirst()) {

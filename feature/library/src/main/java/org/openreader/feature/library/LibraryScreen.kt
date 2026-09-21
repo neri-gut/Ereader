@@ -25,10 +25,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -65,21 +66,12 @@ fun LibraryScreen(
     val context = LocalContext.current
     var query by remember { mutableStateOf("") }
     var filter by remember { mutableStateOf(LibraryFilter.ALL) }
-    var addMenu by remember { mutableStateOf(false) }
     val openDocument = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri != null) {
             val name = queryDisplayName(context.contentResolver, uri)
             onImportUri(uri, name)
-            onOpenDocument(
-                LibraryDocument(
-                    fileHash = "",
-                    fileName = name,
-                    contentUri = uri.toString(),
-                    lastOpenedTimestamp = System.currentTimeMillis()
-                )
-            )
         }
     }
     val openTree = rememberLauncherForActivityResult(
@@ -106,16 +98,27 @@ fun LibraryScreen(
     Box(modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             Text(
-                text = "Tu biblioteca",
+                text = "Biblioteca",
                 style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier.padding(start = 20.dp, top = 20.dp, end = 20.dp)
+                modifier = Modifier.padding(start = 20.dp, top = 16.dp, end = 20.dp)
             )
             Text(
                 text = if (documents.isEmpty()) "Añade PDFs para empezar" else "${documents.size} documentos",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 20.dp, top = 4.dp, bottom = 12.dp)
+                modifier = Modifier.padding(start = 20.dp, top = 4.dp, bottom = 8.dp)
             )
+            Row(
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(onClick = {
+                    openDocument.launch(arrayOf("application/pdf"))
+                }) { Text("Añadir PDF") }
+                OutlinedButton(onClick = { openTree.launch(null) }) {
+                    Text("Carpeta")
+                }
+            }
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
@@ -150,7 +153,7 @@ fun LibraryScreen(
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
                         if (documents.isEmpty()) {
-                            "Pulsa + para abrir un PDF o una carpeta."
+                            "Usa Añadir PDF o Carpeta para importar documentos."
                         } else {
                             "Nada coincide con este filtro."
                         },
@@ -161,12 +164,12 @@ fun LibraryScreen(
             } else {
                 LazyVerticalGrid(
                     columns = GridCells.Adaptive(minSize = 156.dp),
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 96.dp),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    items(filtered, key = { it.fileHash.ifBlank { it.contentUri } }) { doc ->
+                    items(filtered, key = { "${it.fileHash}:${it.contentUri}" }) { doc ->
                         BookCard(
                             document = doc,
                             onOpen = { onOpenDocument(doc) },
@@ -174,33 +177,6 @@ fun LibraryScreen(
                             onRemove = { onRemove(doc.fileHash) }
                         )
                     }
-                }
-            }
-        }
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(20.dp)
-        ) {
-            Column(horizontalAlignment = Alignment.End) {
-                DropdownMenu(expanded = addMenu, onDismissRequest = { addMenu = false }) {
-                    DropdownMenuItem(
-                        text = { Text("Abrir PDF") },
-                        onClick = {
-                            addMenu = false
-                            openDocument.launch(arrayOf("application/pdf"))
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Abrir carpeta") },
-                        onClick = {
-                            addMenu = false
-                            openTree.launch(null)
-                        }
-                    )
-                }
-                FloatingActionButton(onClick = { addMenu = true }) {
-                    Text("+", fontSize = 22.sp)
                 }
             }
         }
@@ -292,7 +268,8 @@ private fun CoverImage(document: LibraryDocument) {
         mutableStateOf<android.graphics.Bitmap?>(null)
     }
     LaunchedEffect(document.fileHash, document.contentUri) {
-        if (document.fileHash.isNotBlank()) {
+        bitmap = null
+        if (document.fileHash.isNotBlank() && document.contentUri.isNotBlank()) {
             bitmap = PdfCoverLoader.load(context, document.contentUri, document.fileHash)
         }
     }
