@@ -88,6 +88,11 @@ class ModelDownloader(
         }
     }
 
+    fun delete(voiceId: String) {
+        File(modelsDir, voiceId).deleteRecursively()
+        _state.value = DownloadState.Idle
+    }
+
     fun close() {
         client.close()
     }

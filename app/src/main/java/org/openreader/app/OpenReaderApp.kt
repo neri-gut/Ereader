@@ -155,6 +155,7 @@ fun OpenReaderApp(
                         audioState = audio,
                         widthSizeClass = widthSizeClass,
                         neuralReady = readerViewModel.availableNeuralVoices().isNotEmpty(),
+                        voiceLabel = readerViewModel.voiceLabel(),
                         onOpenMenu = { scope.launch { drawerState.open() } },
                         onToggleNative = readerViewModel::toggleNativePdf,
                         onPdfPageMode = readerViewModel::setPdfPageMode,
@@ -174,15 +175,27 @@ fun OpenReaderApp(
                     val downloaderState by downloaderViewModel.uiState.collectAsStateWithLifecycle()
                     DownloaderScreen(
                         state = downloaderState,
+                        selectedVoiceId = ttsConfig.selectedVoiceId,
                         onDownload = { id -> downloaderViewModel.startDownload(context, id) },
                         onSelectVoice = { voice ->
                             readerViewModel.updateTts(
                                 ttsConfig.copy(
                                     selectedVoiceId = voice.id,
-                                    engineType = TTSEngineType.SHERPA_ONNX_PIPER
+                                    engineType = voice.engineType
                                 )
                             )
-                            goTo(if (hasOpenDocument) AppTab.READER else AppTab.LIBRARY)
+                            if (hasOpenDocument) goTo(AppTab.READER)
+                        },
+                        onDelete = { id ->
+                            downloaderViewModel.delete(id)
+                            if (ttsConfig.selectedVoiceId == id) {
+                                readerViewModel.updateTts(
+                                    ttsConfig.copy(
+                                        selectedVoiceId = org.openreader.core.model.TTSConfig.SYSTEM_VOICE_ID,
+                                        engineType = TTSEngineType.SYSTEM
+                                    )
+                                )
+                            }
                         },
                         modifier = contentModifier
                     )

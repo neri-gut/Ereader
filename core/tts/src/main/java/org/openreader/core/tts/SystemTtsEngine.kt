@@ -96,6 +96,21 @@ class SystemTtsEngine(
     fun applyConfig(config: TTSConfig) {
         tts.setSpeechRate(config.speechRate.coerceIn(TTSConfig.MIN_SPEECH_RATE, TTSConfig.MAX_SPEECH_RATE))
         tts.setPitch(config.pitch)
+        if (config.selectedVoiceId.startsWith("system:")) {
+            val name = config.selectedVoiceId.removePrefix("system:")
+            val match = tts.voices?.firstOrNull { it.name == name }
+            if (match != null) {
+                tts.voice = match
+                tts.language = match.locale
+            }
+        } else {
+            tts.language = Locale.getDefault()
+        }
+    }
+
+    fun installedVoices(): List<android.speech.tts.Voice> {
+        if (!ready.isCompleted) return emptyList()
+        return tts.voices?.toList().orEmpty()
     }
 
     fun speakQueue(paragraphs: List<ParagraphData>, startIndex: Int, prefetchNext: Boolean) {

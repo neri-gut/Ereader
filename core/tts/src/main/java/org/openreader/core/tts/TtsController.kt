@@ -42,9 +42,13 @@ class TtsController(
 
     init {
         systemEngine.setCallbacks(
-            onState = { _state.value = it },
+            onState = { audio ->
+                if (activeEngine == TTSEngineType.SYSTEM) {
+                    _state.value = audio
+                }
+            },
             onParagraphFinished = { finished ->
-                if (config.engineType != TTSEngineType.SYSTEM) return@setCallbacks
+                if (activeEngine != TTSEngineType.SYSTEM) return@setCallbacks
                 val prefetchIndex = finished + 2
                 if (prefetchIndex < paragraphs.size) {
                     systemEngine.enqueue(paragraphs[prefetchIndex], prefetchIndex)
@@ -55,7 +59,7 @@ class TtsController(
         )
         scope.launch {
             neuralQueue.state.collect { neuralState ->
-                if (config.engineType == TTSEngineType.SHERPA_ONNX_PIPER) {
+                if (activeEngine == TTSEngineType.SHERPA_ONNX_PIPER) {
                     _state.value = neuralState
                 }
             }
@@ -72,32 +76,35 @@ class TtsController(
     }
 
     fun updateConfig(value: TTSConfig) {
+        val engineChanged = value.engineType != config.engineType ||
+            value.selectedVoiceId != config.selectedVoiceId
+        if (engineChanged) stop()
         config = value
         neuralQueue.setSpeechRate(value.speechRate)
         systemEngine.applyConfig(value)
     }
 
     fun play(startIndex: Int) {
-        val neuralReady = config.engineType == TTSEngineType.SHERPA_ONNX_PIPER &&
-            isNeuralModelReady(config.selectedVoiceId)
-        if (neuralReady) {
-            activeEngine = TTSEngineType.SHERPA_ONNX_PIPER
-            scope.launch {
-                try {
-                    val dir = File(modelsDir, config.selectedVoiceId)
-                    neural.prepare(dir)
-                    neuralQueue.setSpeechRate(config.speechRate)
-                    neuralQueue.play(startIndex)
-                } catch (error: Throwable) {
-                    _state.value = AudioState.Error(error.message ?: "Fallo del motor neuronal")
-                    playSystem(startIndex)
+        stop()
+        when (config.engineType) {
+            TTSEngineType.SHERPA_ONNX_PIPER -> {
+                if (!isNeuralModelReady(config.selectedVoiceId)) {
+                    _state.value = AudioState.Error("Descarga una voz neuronal en Voces antes de usarla")
+                    return
+                }
+                activeEngine = TTSEngineType.SHERPA_ONNX_PIPER
+                scope.launch {
+                    try {
+                        val dir = File(modelsDir, config.selectedVoiceId)
+                        neural.prepare(dir)
+                        neuralQueue.setSpeechRate(config.speechRate)
+                        neuralQueue.play(startIndex)
+                    } catch (error: Throwable) {
+                        _state.value = AudioState.Error(error.message ?: "Fallo del motor neuronal")
+                    }
                 }
             }
-        } else {
-            if (config.engineType == TTSEngineType.SHERPA_ONNX_PIPER) {
-                _state.value = AudioState.Error("Voz neuronal no instalada; usando el motor del sistema")
-            }
-            playSystem(startIndex)
+            TTSEngineType.SYSTEM -> playSystem(startIndex)
         }
     }
 
@@ -170,4 +177,24 @@ class TtsController(
             dir.listFiles()?.any { it.extension == "onnx" } == true &&
             File(dir, "espeak-ng-data/phontab").exists()
     }
+
+    suspend fun awaitSystemReady() {
+        systemEngine.ensureReady()
+    }
+
+    fun systemVoices(): List<org.openreader.core.model.VoiceModel> {
+        return systemEngine.installedVoices()
+            .sortedWith(compareBy({ it.locale.toLanguageTag() }, { it.name }))
+            .map { voice ->
+                org.openreader.core.model.VoiceModel(
+                    id = "system:${voice.name}",
+                    name = voice.name.substringAfterLast(":").ifBlank { voice.name },
+                    languageCode = voice.locale.toLanguageTag(),
+                    engineType = TTSEngineType.SYSTEM,
+                    isDownloaded = true
+                )
+            }
+    }
+
+    fun currentEngine(): TTSEngineType = activeEngine
 }

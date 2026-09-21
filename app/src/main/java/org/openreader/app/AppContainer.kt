@@ -37,5 +37,5 @@ class AppContainer(context: Context) {
         ttsController = ttsController,
         modelDownloader = modelDownloader
     )
-    val downloaderFactory = DownloaderViewModel.Factory(modelDownloader)
+    val downloaderFactory = DownloaderViewModel.Factory(modelDownloader, ttsController)
 }

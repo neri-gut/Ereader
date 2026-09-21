@@ -179,8 +179,19 @@ class ReaderViewModel(
     }
 
     fun selectParagraph(index: Int) {
-        _uiState.update { it.copy(currentParagraph = index) }
+        _uiState.update {
+            it.copy(
+                currentParagraph = index,
+                showNativePdf = false
+            )
+        }
         persistProgress(index, 0)
+        when (ttsController.state.value) {
+            is AudioState.Playing,
+            is AudioState.Paused,
+            is AudioState.Synthesizing -> ttsController.play(index)
+            else -> Unit
+        }
     }
 
     fun updateTheme(theme: ReaderTheme) {
@@ -202,10 +213,28 @@ class ReaderViewModel(
         _uiState.update {
             it.copy(
                 showTtsBar = true,
-                error = if (neuralMissing) "NEEDS_VOICE" else it.error
+                showNativePdf = false,
+                error = if (neuralMissing) "NEEDS_VOICE" else null
             )
         }
-        ttsController.play(snapshot.currentParagraph)
+        if (!neuralMissing) {
+            ttsController.play(snapshot.currentParagraph)
+        }
+    }
+
+    fun voiceLabel(): String {
+        val config = ttsConfig.value
+        return when (config.engineType) {
+            TTSEngineType.SYSTEM -> {
+                if (config.selectedVoiceId.startsWith("system:")) {
+                    config.selectedVoiceId.removePrefix("system:")
+                } else {
+                    "predeterminada"
+                }
+            }
+            TTSEngineType.SHERPA_ONNX_PIPER ->
+                VoiceCatalog.byId(config.selectedVoiceId)?.displayName ?: config.selectedVoiceId
+        }
     }
 
     fun pause() = ttsController.pause()

@@ -18,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.SpanStyle
@@ -40,6 +41,7 @@ fun ReaderScreen(
     audioState: AudioState,
     widthSizeClass: WindowWidthSizeClass,
     neuralReady: Boolean,
+    voiceLabel: String,
     onOpenMenu: () -> Unit,
     onToggleNative: () -> Unit,
     onPdfPageMode: (PdfPageMode) -> Unit,
@@ -96,14 +98,14 @@ fun ReaderScreen(
             TtsControls(
                 audioState = audioState,
                 config = ttsConfig,
-                neuralReady = neuralReady,
+                voiceLabel = voiceLabel,
+                paragraphIndex = state.currentParagraph,
                 onPlay = onPlay,
                 onPause = onPause,
                 onResume = onResume,
                 onPrevious = onPrevious,
                 onNext = onNext,
                 onRateChange = { onTtsChange(ttsConfig.copy(speechRate = it)) },
-                onEngineChange = { onTtsChange(ttsConfig.copy(engineType = it)) },
                 onOpenVoices = onOpenVoices,
                 modifier = Modifier.imePadding()
             )
@@ -187,6 +189,11 @@ private fun ContinuousText(
     val listState = rememberLazyListState(
         initialFirstVisibleItemIndex = currentParagraph.coerceIn(0, (paragraphs.size - 1).coerceAtLeast(0))
     )
+    LaunchedEffect(currentParagraph, paragraphs.size) {
+        if (paragraphs.isNotEmpty()) {
+            listState.animateScrollToItem(currentParagraph.coerceIn(0, paragraphs.lastIndex))
+        }
+    }
     val maxWidth = if (expanded) theme.maxContainerWidthRem.rem else 48.rem
     LazyColumn(
         state = listState,
@@ -222,8 +229,11 @@ private fun ContinuousText(
                     .clickable { onSelectParagraph(index) }
                     .padding(bottom = 16.dp)
                     .background(
-                        if (index == currentParagraph && !highlight) palette.highlight.copy(alpha = 0.35f)
-                        else palette.background
+                        when {
+                            highlight -> palette.highlight.copy(alpha = 0.55f)
+                            index == currentParagraph -> palette.highlight.copy(alpha = 0.35f)
+                            else -> palette.background
+                        }
                     )
             )
         }

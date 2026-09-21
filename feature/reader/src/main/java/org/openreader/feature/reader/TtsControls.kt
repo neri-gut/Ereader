@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -21,20 +22,33 @@ import org.openreader.core.model.TTSEngineType
 fun TtsControls(
     audioState: AudioState,
     config: TTSConfig,
-    neuralReady: Boolean,
+    voiceLabel: String,
+    paragraphIndex: Int,
     onPlay: () -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     onRateChange: (Float) -> Unit,
-    onEngineChange: (TTSEngineType) -> Unit,
     onOpenVoices: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val playing = audioState is AudioState.Playing || audioState is AudioState.Synthesizing
     val paused = audioState is AudioState.Paused
-    Column(modifier = modifier.fillMaxWidth()) {
+    val engineName = when (config.engineType) {
+        TTSEngineType.SYSTEM -> "Sistema"
+        TTSEngineType.SHERPA_ONNX_PIPER -> "Neuronal"
+    }
+    Column(modifier = modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) {
+        Text(
+            text = "$engineName · $voiceLabel",
+            style = MaterialTheme.typography.labelLarge
+        )
+        Text(
+            text = "Párrafo ${paragraphIndex + 1} (toca un párrafo para empezar ahí)",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly,
@@ -44,40 +58,22 @@ fun TtsControls(
             when {
                 playing -> FilledTonalButton(onClick = onPause) { Text("Pausa") }
                 paused -> FilledTonalButton(onClick = onResume) { Text("Continuar") }
-                else -> FilledTonalButton(onClick = onPlay) { Text("Play") }
+                else -> FilledTonalButton(onClick = onPlay) { Text("Leer") }
             }
             TextButton(onClick = onNext) { Text("Siguiente") }
         }
-        Text(
-            text = "Velocidad ${"%.1f".format(config.speechRate)}x",
-            modifier = Modifier.padding(horizontal = 16.dp)
-        )
+        Text("Velocidad ${"%.1f".format(config.speechRate)}×")
         Slider(
             value = config.speechRate,
             onValueChange = onRateChange,
-            valueRange = TTSConfig.MIN_SPEECH_RATE..TTSConfig.MAX_SPEECH_RATE,
-            modifier = Modifier.padding(horizontal = 16.dp)
+            valueRange = TTSConfig.MIN_SPEECH_RATE..TTSConfig.MAX_SPEECH_RATE
         )
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            TextButton(onClick = { onEngineChange(TTSEngineType.SYSTEM) }) {
-                Text(if (config.engineType == TTSEngineType.SYSTEM) "Sistema ✓" else "Sistema")
-            }
-            TextButton(onClick = { onEngineChange(TTSEngineType.SHERPA_ONNX_PIPER) }) {
-                val label = if (neuralReady) "Neuronal ✓" else "Neuronal"
-                Text(if (config.engineType == TTSEngineType.SHERPA_ONNX_PIPER) "$label · activa" else label)
-            }
-            TextButton(onClick = onOpenVoices) { Text("Voces") }
-        }
+        TextButton(onClick = onOpenVoices) { Text("Cambiar o descargar voces") }
         if (audioState is AudioState.Synthesizing) {
-            Text("Preparando párrafo ${audioState.paragraphIndex + 1}…", modifier = Modifier.padding(8.dp))
+            Text("Preparando párrafo ${audioState.paragraphIndex + 1}…")
         }
         if (audioState is AudioState.Error) {
-            Text(audioState.message, modifier = Modifier.padding(8.dp))
+            Text(audioState.message, color = MaterialTheme.colorScheme.error)
         }
     }
 }
