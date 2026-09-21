@@ -54,6 +54,12 @@ class LibraryViewModel(
         }
     }
 
+    fun toggleFavorite(document: LibraryDocument) {
+        viewModelScope.launch(Dispatchers.IO) {
+            progressRepository.setFavorite(document.fileHash, !document.isFavorite)
+        }
+    }
+
     fun remove(fileHash: String) {
         viewModelScope.launch(Dispatchers.IO) {
             progressRepository.remove(fileHash)

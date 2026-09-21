@@ -22,7 +22,9 @@ data class ReadingProgressEntity(
     @ColumnInfo(name = "total_paragraphs")
     val totalParagraphs: Int,
     @ColumnInfo(name = "last_read_timestamp")
-    val lastReadTimestamp: Long
+    val lastReadTimestamp: Long,
+    @ColumnInfo(name = "is_favorite", defaultValue = "0")
+    val isFavorite: Boolean = false
 ) {
     fun toProgress(): ReadingProgress = ReadingProgress(
         fileHash = fileHash,
@@ -39,13 +41,15 @@ data class ReadingProgressEntity(
         contentUri = contentUri,
         lastOpenedTimestamp = lastReadTimestamp,
         paragraphIndex = paragraphIndex,
-        totalParagraphs = totalParagraphs
+        totalParagraphs = totalParagraphs,
+        isFavorite = isFavorite
     )
 
     companion object {
         fun from(
             progress: ReadingProgress,
-            contentUri: String
+            contentUri: String,
+            isFavorite: Boolean = false
         ): ReadingProgressEntity = ReadingProgressEntity(
             fileHash = progress.fileHash,
             fileName = progress.fileName,
@@ -53,7 +57,8 @@ data class ReadingProgressEntity(
             paragraphIndex = progress.paragraphIndex,
             charOffset = progress.charOffset,
             totalParagraphs = progress.totalParagraphs,
-            lastReadTimestamp = progress.lastReadTimestamp
+            lastReadTimestamp = progress.lastReadTimestamp,
+            isFavorite = isFavorite
         )
     }
 }

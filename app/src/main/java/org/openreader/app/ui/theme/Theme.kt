@@ -9,9 +9,10 @@ import androidx.compose.ui.graphics.Color
 private val LightColors = lightColorScheme(
     primary = Color(0xFF1B4332),
     onPrimary = Color(0xFFFFFFFF),
-    secondary = Color(0xFF2D6A4F),
-    background = Color(0xFFF8F9FA),
-    surface = Color(0xFFFFFFFF)
+    secondary = Color(0xFF40916C),
+    background = Color(0xFFF4F1EA),
+    surface = Color(0xFFFFFBF5),
+    surfaceVariant = Color(0xFFE7E1D4)
 )
 
 private val DarkColors = darkColorScheme(

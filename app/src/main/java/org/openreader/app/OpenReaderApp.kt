@@ -54,6 +54,7 @@ fun OpenReaderApp(
                 },
                 onImportUri = { uri, name -> libraryViewModel.importDocument(context, uri, name) },
                 onImportTree = { uri -> libraryViewModel.importTree(context, uri) },
+                onToggleFavorite = libraryViewModel::toggleFavorite,
                 onRemove = libraryViewModel::remove,
                 modifier = screenModifier
             )
@@ -71,8 +72,6 @@ fun OpenReaderApp(
                     neuralReady = readerViewModel.availableNeuralVoices().isNotEmpty(),
                     onBack = { route = AppRoute.Library },
                     onToggleNative = readerViewModel::toggleNativePdf,
-                    onToggleControls = readerViewModel::toggleControls,
-                    onHideControls = readerViewModel::hideControls,
                     onSelectParagraph = readerViewModel::selectParagraph,
                     onThemeChange = readerViewModel::updateTheme,
                     onTtsChange = readerViewModel::updateTts,
@@ -82,6 +81,7 @@ fun OpenReaderApp(
                     onPrevious = readerViewModel::skipPrevious,
                     onNext = readerViewModel::skipNext,
                     onOpenVoices = { route = AppRoute.Voices },
+                    onToggleTtsBar = readerViewModel::toggleTtsBar,
                     modifier = screenModifier
                 )
             }

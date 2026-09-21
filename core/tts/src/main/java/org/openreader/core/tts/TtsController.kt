@@ -37,6 +37,8 @@ class TtsController(
     private var paragraphs: List<ParagraphData> = emptyList()
     private var config: TTSConfig = TTSConfig()
     private var modelsDir: File = File(context.filesDir, "models")
+    @Volatile
+    private var activeEngine: TTSEngineType = TTSEngineType.SYSTEM
 
     init {
         systemEngine.setCallbacks(
@@ -76,41 +78,58 @@ class TtsController(
     }
 
     fun play(startIndex: Int) {
-        when (config.engineType) {
-            TTSEngineType.SYSTEM -> {
-                scope.launch {
-                    systemEngine.awaitReadyOrThrow()
-                    systemEngine.applyConfig(config)
-                    systemEngine.speakQueue(paragraphs, startIndex, prefetchNext = true)
-                }
-            }
-            TTSEngineType.SHERPA_ONNX_PIPER -> {
-                scope.launch {
+        val neuralReady = config.engineType == TTSEngineType.SHERPA_ONNX_PIPER &&
+            isNeuralModelReady(config.selectedVoiceId)
+        if (neuralReady) {
+            activeEngine = TTSEngineType.SHERPA_ONNX_PIPER
+            scope.launch {
+                try {
                     val dir = File(modelsDir, config.selectedVoiceId)
                     neural.prepare(dir)
                     neuralQueue.setSpeechRate(config.speechRate)
                     neuralQueue.play(startIndex)
+                } catch (error: Throwable) {
+                    _state.value = AudioState.Error(error.message ?: "Fallo del motor neuronal")
+                    playSystem(startIndex)
                 }
+            }
+        } else {
+            if (config.engineType == TTSEngineType.SHERPA_ONNX_PIPER) {
+                _state.value = AudioState.Error("Voz neuronal no instalada; usando el motor del sistema")
+            }
+            playSystem(startIndex)
+        }
+    }
+
+    private fun playSystem(startIndex: Int) {
+        activeEngine = TTSEngineType.SYSTEM
+        scope.launch {
+            try {
+                systemEngine.awaitReadyOrThrow()
+                systemEngine.applyConfig(config)
+                systemEngine.speakQueue(paragraphs, startIndex, prefetchNext = true)
+            } catch (error: Throwable) {
+                _state.value = AudioState.Error(error.message ?: "TTS del sistema no disponible")
             }
         }
     }
 
     fun pause() {
-        when (config.engineType) {
+        when (activeEngine) {
             TTSEngineType.SYSTEM -> systemEngine.pause()
             TTSEngineType.SHERPA_ONNX_PIPER -> neuralQueue.pause()
         }
     }
 
     fun resume() {
-        when (config.engineType) {
+        when (activeEngine) {
             TTSEngineType.SYSTEM -> {
                 val index = when (val current = _state.value) {
                     is AudioState.Paused -> current.paragraphIndex
                     is AudioState.Playing -> current.paragraphIndex
                     else -> 0
                 }
-                play(index)
+                playSystem(index)
             }
             TTSEngineType.SHERPA_ONNX_PIPER -> neuralQueue.resume()
         }

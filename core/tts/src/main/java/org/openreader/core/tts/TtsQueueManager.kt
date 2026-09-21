@@ -7,6 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -29,6 +30,8 @@ class TtsQueueManager(
 
     @Volatile
     private var speechRate: Float = 1.0f
+    @Volatile
+    private var paused: Boolean = false
     private var playbackJob: Job? = null
     private var paragraphs: List<ParagraphData> = emptyList()
 
@@ -43,6 +46,7 @@ class TtsQueueManager(
     fun play(startIndex: Int) {
         val items = paragraphs
         if (items.isEmpty()) return
+        paused = false
         stopInternal(keepState = false)
         val start = startIndex.coerceIn(0, items.lastIndex)
         playbackJob = scope.launch {
@@ -64,6 +68,9 @@ class TtsQueueManager(
             }
             try {
                 for (buffer in channel) {
+                    while (paused) {
+                        delay(40)
+                    }
                     _state.value = AudioState.Playing(
                         paragraphIndex = buffer.paragraphIndex,
                         startCharOffset = 0,
@@ -91,15 +98,21 @@ class TtsQueueManager(
 
     fun pause() {
         val current = _state.value
-        if (current is AudioState.Playing) {
-            sink.pause()
-            _state.value = AudioState.Paused(current.paragraphIndex)
+        val index = when (current) {
+            is AudioState.Playing -> current.paragraphIndex
+            is AudioState.Synthesizing -> current.paragraphIndex
+            is AudioState.Paused -> return
+            else -> return
         }
+        paused = true
+        sink.pause()
+        _state.value = AudioState.Paused(index)
     }
 
     fun resume() {
         val current = _state.value
         if (current is AudioState.Paused) {
+            paused = false
             sink.resumePlayback()
             _state.value = AudioState.Playing(
                 paragraphIndex = current.paragraphIndex,

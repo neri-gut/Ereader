@@ -25,8 +25,13 @@ class ProgressRepository(
 
     suspend fun saveProgress(progress: ReadingProgress, contentUri: String) =
         withContext(ioDispatcher) {
-            dao.upsert(ReadingProgressEntity.from(progress, contentUri))
+            val favorite = dao.getByHash(progress.fileHash)?.isFavorite ?: false
+            dao.upsert(ReadingProgressEntity.from(progress, contentUri, favorite))
         }
+
+    suspend fun setFavorite(fileHash: String, favorite: Boolean) = withContext(ioDispatcher) {
+        dao.setFavorite(fileHash, favorite)
+    }
 
     suspend fun remove(fileHash: String) = withContext(ioDispatcher) {
         dao.deleteByHash(fileHash)

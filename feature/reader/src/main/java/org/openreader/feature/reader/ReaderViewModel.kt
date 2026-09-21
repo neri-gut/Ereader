@@ -1,11 +1,14 @@
 package org.openreader.feature.reader
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -36,7 +39,10 @@ data class ReaderUiState(
     val loading: Boolean = false,
     val error: String? = null,
     val showNativePdf: Boolean = false,
-    val controlsVisible: Boolean = true
+    val showTtsBar: Boolean = false,
+    val localPdfPath: String? = null,
+    val extractPage: Int = 0,
+    val extractTotal: Int = 0
 )
 
 class ReaderViewModel(
@@ -57,6 +63,7 @@ class ReaderViewModel(
         viewModelScope, SharingStarted.WhileSubscribed(5_000), TTSConfig()
     )
     val audioState: StateFlow<AudioState> = ttsController.state
+    private var openJob: Job? = null
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
@@ -87,17 +94,44 @@ class ReaderViewModel(
     }
 
     fun open(context: Context, uri: Uri, fileName: String) {
-        viewModelScope.launch(Dispatchers.IO) {
+        openJob?.cancel()
+        ttsController.stop()
+        openJob = viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            }
             _uiState.update {
-                it.copy(loading = true, error = null, fileName = fileName, contentUri = uri.toString())
+                it.copy(
+                    loading = true,
+                    error = null,
+                    fileName = fileName,
+                    contentUri = uri.toString(),
+                    showNativePdf = true,
+                    paragraphs = emptyList(),
+                    localPdfPath = null,
+                    extractPage = 0,
+                    extractTotal = 0
+                )
             }
             try {
-                val hash = context.contentResolver.openInputStream(uri)?.use { hasher.hash(it) }
-                    ?: error("No se pudo leer el archivo")
+                val file = PdfTextExtractor.materialize(context, uri)
+                _uiState.update { it.copy(localPdfPath = file.absolutePath) }
+                val hash = file.inputStream().use { hasher.hash(it) }
                 val saved = progressRepository.getProgress(hash)
                 val paragraphs = mutableListOf<ParagraphData>()
-                extractor.extract(uri).collect { paragraphs += it }
-                val start = saved?.paragraphIndex?.coerceIn(0, paragraphs.lastIndex.coerceAtLeast(0)) ?: 0
+                extractor.extractFromFile(file) { page, total ->
+                    _uiState.update { it.copy(extractPage = page, extractTotal = total) }
+                }.collect { paragraph ->
+                    paragraphs += paragraph
+                    if (paragraphs.size == 1 || paragraphs.size % 6 == 0) {
+                        _uiState.update { it.copy(paragraphs = paragraphs.toList()) }
+                    }
+                }
+                val lastIndex = (paragraphs.size - 1).coerceAtLeast(0)
+                val start = saved?.paragraphIndex?.coerceIn(0, lastIndex) ?: 0
                 ttsController.updateParagraphs(paragraphs)
                 progressRepository.saveProgress(
                     ReadingProgress(
@@ -112,25 +146,27 @@ class ReaderViewModel(
                 _uiState.update {
                     it.copy(
                         fileHash = hash,
-                        paragraphs = paragraphs,
+                        paragraphs = paragraphs.toList(),
                         currentParagraph = start,
                         loading = false
                     )
                 }
-            } catch (error: Exception) {
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Throwable) {
                 _uiState.update {
-                    it.copy(loading = false, error = error.message ?: "Error al abrir el PDF")
+                    it.copy(
+                        loading = false,
+                        showNativePdf = true,
+                        error = error.message ?: "Error al extraer el texto. Puedes usar la vista PDF nativa."
+                    )
                 }
             }
         }
     }
 
-    fun toggleControls() {
-        _uiState.update { it.copy(controlsVisible = !it.controlsVisible) }
-    }
-
-    fun hideControls() {
-        _uiState.update { it.copy(controlsVisible = false) }
+    fun toggleTtsBar() {
+        _uiState.update { it.copy(showTtsBar = !it.showTtsBar) }
     }
 
     fun toggleNativePdf() {
@@ -154,15 +190,17 @@ class ReaderViewModel(
     }
 
     fun play() {
-        val state = _uiState.value
+        val snapshot = _uiState.value
         val config = ttsConfig.value
-        if (config.engineType == TTSEngineType.SHERPA_ONNX_PIPER &&
+        val neuralMissing = config.engineType == TTSEngineType.SHERPA_ONNX_PIPER &&
             !ttsController.isNeuralModelReady(config.selectedVoiceId)
-        ) {
-            _uiState.update { it.copy(error = "NEEDS_VOICE") }
-            return
+        _uiState.update {
+            it.copy(
+                showTtsBar = true,
+                error = if (neuralMissing) "NEEDS_VOICE" else it.error
+            )
         }
-        ttsController.play(state.currentParagraph)
+        ttsController.play(snapshot.currentParagraph)
     }
 
     fun pause() = ttsController.pause()

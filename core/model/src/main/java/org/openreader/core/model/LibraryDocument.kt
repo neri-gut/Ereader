@@ -9,5 +9,6 @@ data class LibraryDocument(
     val contentUri: String,
     val lastOpenedTimestamp: Long,
     val paragraphIndex: Int = 0,
-    val totalParagraphs: Int = 0
+    val totalParagraphs: Int = 0,
+    val isFavorite: Boolean = false
 )

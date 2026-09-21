@@ -36,7 +36,7 @@ class ModelDownloadService : Service() {
         val downloader = downloaderFromApp()
         scope.launch {
             try {
-                launch {
+                val progressJob = launch {
                     downloader.state.collect { state ->
                         when (state) {
                             is DownloadState.InProgress -> {
@@ -46,14 +46,19 @@ class ModelDownloadService : Service() {
                                 } else 0
                                 notify("Descargando ${state.voiceId}", progress, max)
                             }
-                            is DownloadState.Verifying -> notify("Verificando integridad", 0, 0)
+                            is DownloadState.Verifying -> notify("Comprobando archivos del modelo", 0, 0)
                             is DownloadState.Completed -> notify("Voz instalada", 100, 100)
                             is DownloadState.Failed -> notify("Error: ${state.message}", 0, 0)
                             DownloadState.Idle -> Unit
                         }
                     }
                 }
-                downloader.download(voiceId)
+                try {
+                    downloader.download(voiceId)
+                } catch (error: Throwable) {
+                    android.util.Log.e("OpenReaderDownload", "Service download failed", error)
+                }
+                progressJob.cancel()
             } finally {
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()

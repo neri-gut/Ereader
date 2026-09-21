@@ -18,4 +18,7 @@ interface ReadingProgressDao {
 
     @Query("DELETE FROM reading_progress WHERE file_hash = :fileHash")
     suspend fun deleteByHash(fileHash: String)
+
+    @Query("UPDATE reading_progress SET is_favorite = :favorite WHERE file_hash = :fileHash")
+    suspend fun setFavorite(fileHash: String, favorite: Boolean)
 }
