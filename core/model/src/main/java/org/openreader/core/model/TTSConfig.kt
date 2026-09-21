@@ -7,7 +7,8 @@ data class TTSConfig(
     val selectedVoiceId: String = SYSTEM_VOICE_ID,
     val engineType: TTSEngineType = TTSEngineType.SYSTEM,
     val speechRate: Float = 1.0f,
-    val pitch: Float = 1.0f
+    val pitch: Float = 1.0f,
+    val speakerId: Int = 0
 ) {
     companion object {
         const val SYSTEM_VOICE_ID = "system_default"

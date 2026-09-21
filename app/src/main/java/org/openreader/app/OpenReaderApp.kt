@@ -139,6 +139,9 @@ fun OpenReaderApp(
                             tab = AppTab.READER
                         }
                     },
+                    onImportQuiet = { uri, name ->
+                        libraryViewModel.importDocument(context, uri, name)
+                    },
                     onImportTree = { uri -> libraryViewModel.importTree(context, uri) },
                     onToggleFavorite = libraryViewModel::toggleFavorite,
                     onRemove = libraryViewModel::remove,
@@ -176,15 +179,16 @@ fun OpenReaderApp(
                     DownloaderScreen(
                         state = downloaderState,
                         selectedVoiceId = ttsConfig.selectedVoiceId,
+                        selectedSpeakerId = ttsConfig.speakerId,
                         onDownload = { id -> downloaderViewModel.startDownload(context, id) },
-                        onSelectVoice = { voice ->
+                        onSelectVoice = { voice, speaker ->
                             readerViewModel.updateTts(
                                 ttsConfig.copy(
                                     selectedVoiceId = voice.id,
-                                    engineType = voice.engineType
+                                    engineType = voice.engineType,
+                                    speakerId = speaker
                                 )
                             )
-                            if (hasOpenDocument) goTo(AppTab.READER)
                         },
                         onDelete = { id ->
                             downloaderViewModel.delete(id)
@@ -192,11 +196,13 @@ fun OpenReaderApp(
                                 readerViewModel.updateTts(
                                     ttsConfig.copy(
                                         selectedVoiceId = org.openreader.core.model.TTSConfig.SYSTEM_VOICE_ID,
-                                        engineType = TTSEngineType.SYSTEM
+                                        engineType = TTSEngineType.SYSTEM,
+                                        speakerId = 0
                                     )
                                 )
                             }
                         },
+                        onPreview = { id, speaker -> downloaderViewModel.preview(id, speaker) },
                         modifier = contentModifier
                     )
                 }

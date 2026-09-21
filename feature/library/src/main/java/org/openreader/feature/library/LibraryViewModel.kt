@@ -60,6 +60,45 @@ class LibraryViewModel(
         }
     }
 
+    fun importDocuments(
+        context: Context,
+        uris: List<Uri>,
+        openFirst: ((LibraryDocument) -> Unit)? = null
+    ) {
+        if (uris.isEmpty()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            uris.forEachIndexed { index, uri ->
+                val name = queryDisplayName(context.contentResolver, uri)
+                persistReadPermission(context.contentResolver, uri)
+                val size = queryFileSize(context.contentResolver, uri)
+                val hash = context.contentResolver.openInputStream(uri)?.use { hasher.hash(it, size) }
+                    ?: return@forEachIndexed
+                PdfCoverLoader.invalidate(context, hash, uri.toString())
+                val existing = progressRepository.getProgress(hash)
+                val progress = existing?.copy(
+                    fileName = name,
+                    lastReadTimestamp = System.currentTimeMillis()
+                ) ?: ReadingProgress(
+                    fileHash = hash,
+                    fileName = name,
+                    paragraphIndex = 0,
+                    charOffset = 0,
+                    totalParagraphs = 0
+                )
+                progressRepository.saveProgress(progress, uri.toString())
+                if (index == 0 && openFirst != null) {
+                    val saved = progressRepository.getDocument(hash) ?: LibraryDocument(
+                        fileHash = hash,
+                        fileName = name,
+                        contentUri = uri.toString(),
+                        lastOpenedTimestamp = System.currentTimeMillis()
+                    )
+                    launch(Dispatchers.Main) { openFirst(saved) }
+                }
+            }
+        }
+    }
+
     fun importTree(context: Context, treeUri: Uri) {
         viewModelScope.launch(Dispatchers.IO) {
             persistReadPermission(context.contentResolver, treeUri)

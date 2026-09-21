@@ -59,7 +59,8 @@ class PreferencesRepository(
                 TTSConfig.MIN_SPEECH_RATE,
                 TTSConfig.MAX_SPEECH_RATE
             ),
-            pitch = prefs[KEY_PITCH] ?: 1.0f
+            pitch = prefs[KEY_PITCH] ?: 1.0f,
+            speakerId = prefs[KEY_SPEAKER_ID] ?: 0
         )
     }
 
@@ -91,6 +92,7 @@ class PreferencesRepository(
                 TTSConfig.MAX_SPEECH_RATE
             )
             prefs[KEY_PITCH] = config.pitch
+            prefs[KEY_SPEAKER_ID] = config.speakerId.coerceAtLeast(0)
         }
     }
 
@@ -104,5 +106,6 @@ class PreferencesRepository(
         val KEY_ENGINE = stringPreferencesKey("tts_engine")
         val KEY_SPEECH_RATE = floatPreferencesKey("speech_rate")
         val KEY_PITCH = floatPreferencesKey("pitch")
+        val KEY_SPEAKER_ID = intPreferencesKey("speaker_id")
     }
 }

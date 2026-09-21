@@ -25,11 +25,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Button
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -58,6 +57,7 @@ fun LibraryScreen(
     documents: List<LibraryDocument>,
     onOpenDocument: (LibraryDocument) -> Unit,
     onImportUri: (Uri, String) -> Unit,
+    onImportQuiet: (Uri, String) -> Unit = onImportUri,
     onImportTree: (Uri) -> Unit,
     onToggleFavorite: (LibraryDocument) -> Unit,
     onRemove: (String) -> Unit,
@@ -67,12 +67,21 @@ fun LibraryScreen(
     val context = LocalContext.current
     var query by remember { mutableStateOf("") }
     var filter by remember { mutableStateOf(LibraryFilter.ALL) }
+    var addMenu by remember { mutableStateOf(false) }
     val openDocument = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri != null) {
             val name = queryDisplayName(context.contentResolver, uri)
             onImportUri(uri, name)
+        }
+    }
+    val openMultiple = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris ->
+        uris.forEachIndexed { index, uri ->
+            val name = queryDisplayName(context.contentResolver, uri)
+            if (index == 0) onImportUri(uri, name) else onImportQuiet(uri, name)
         }
     }
     val openTree = rememberLauncherForActivityResult(
@@ -111,17 +120,12 @@ fun LibraryScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = 20.dp, top = 8.dp, bottom = 8.dp)
             )
-            Row(
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Button(onClick = {
-                    openDocument.launch(arrayOf("application/pdf"))
-                }) { Text("Añadir PDF") }
-                OutlinedButton(onClick = { openTree.launch(null) }) {
-                    Text("Carpeta")
-                }
-            }
+            Text(
+                "Usa + para añadir PDFs. Si el sistema no deja elegir una carpeta, selecciona los archivos uno a uno o varios a la vez.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 8.dp)
+            )
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
@@ -156,7 +160,7 @@ fun LibraryScreen(
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
                         if (documents.isEmpty()) {
-                            "Usa Añadir PDF o Carpeta para importar documentos."
+                            "Pulsa + para añadir un PDF o varios a la vez."
                         } else {
                             "Nada coincide con este filtro."
                         },
@@ -167,7 +171,7 @@ fun LibraryScreen(
             } else {
                 LazyVerticalGrid(
                     columns = GridCells.Adaptive(minSize = 156.dp),
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 96.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     modifier = Modifier.fillMaxSize()
@@ -181,6 +185,38 @@ fun LibraryScreen(
                         )
                     }
                 }
+            }
+        }
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(20.dp)
+        ) {
+            DropdownMenu(expanded = addMenu, onDismissRequest = { addMenu = false }) {
+                DropdownMenuItem(
+                    text = { Text("Añadir un PDF") },
+                    onClick = {
+                        addMenu = false
+                        openDocument.launch(arrayOf("application/pdf"))
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("Añadir varios PDFs") },
+                    onClick = {
+                        addMenu = false
+                        openMultiple.launch(arrayOf("application/pdf"))
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("Carpeta (si el sistema lo permite)") },
+                    onClick = {
+                        addMenu = false
+                        openTree.launch(null)
+                    }
+                )
+            }
+            FloatingActionButton(onClick = { addMenu = true }) {
+                Text("+", fontSize = 24.sp)
             }
         }
     }

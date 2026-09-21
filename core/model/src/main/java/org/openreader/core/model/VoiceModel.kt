@@ -23,5 +23,8 @@ data class VoiceModel(
     val gender: VoiceGender = VoiceGender.UNKNOWN,
     val modelFileName: String? = null,
     val tokensFileName: String? = null,
-    val isDownloaded: Boolean = false
+    val isDownloaded: Boolean = false,
+    val canDelete: Boolean = false,
+    val speakerCount: Int = 1,
+    val speakerLabels: List<String> = emptyList()
 )

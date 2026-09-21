@@ -18,7 +18,8 @@ import org.openreader.core.tts.TtsController
 data class DownloaderUiState(
     val neuralVoices: List<VoiceModel> = emptyList(),
     val systemVoices: List<VoiceModel> = emptyList(),
-    val download: DownloadState = DownloadState.Idle
+    val download: DownloadState = DownloadState.Idle,
+    val playingSampleUrl: String? = null
 )
 
 class DownloaderViewModel(
@@ -26,6 +27,8 @@ class DownloaderViewModel(
     private val ttsController: TtsController
 ) : ViewModel() {
     private val refresh = MutableStateFlow(0)
+    private val playingSample = MutableStateFlow<String?>(null)
+    private val samplePlayer = VoiceSamplePlayer()
 
     init {
         viewModelScope.launch {
@@ -39,8 +42,9 @@ class DownloaderViewModel(
 
     val uiState: StateFlow<DownloaderUiState> = combine(
         downloader.state,
-        refresh
-    ) { download, _ ->
+        refresh,
+        playingSample
+    ) { download, _, sampleUrl ->
         DownloaderUiState(
             neuralVoices = VoiceCatalog.piperVoices.map { pack ->
                 VoiceModel(
@@ -51,11 +55,15 @@ class DownloaderViewModel(
                     gender = pack.gender,
                     modelFileName = pack.onnxFileName,
                     tokensFileName = pack.tokensFileName,
-                    isDownloaded = downloader.isInstalled(pack)
+                    isDownloaded = downloader.isInstalled(pack),
+                    canDelete = downloader.hasLocalFiles(pack.id),
+                    speakerCount = pack.speakerCount,
+                    speakerLabels = pack.speakerLabels
                 )
             },
             systemVoices = ttsController.systemVoices(),
-            download = download
+            download = download,
+            playingSampleUrl = sampleUrl
         )
     }.stateIn(
         scope = viewModelScope,
@@ -68,8 +76,29 @@ class DownloaderViewModel(
     }
 
     fun delete(voiceId: String) {
+        samplePlayer.stop()
+        playingSample.value = null
         downloader.delete(voiceId)
         refresh.value += 1
+    }
+
+    fun preview(voiceId: String, speakerId: Int = 0) {
+        val pack = VoiceCatalog.byId(voiceId) ?: return
+        val url = pack.sampleUrl(speakerId)
+        if (playingSample.value == url) {
+            samplePlayer.stop()
+            playingSample.value = null
+            return
+        }
+        playingSample.value = url
+        samplePlayer.play(url) {
+            playingSample.value = null
+        }
+    }
+
+    override fun onCleared() {
+        samplePlayer.stop()
+        super.onCleared()
     }
 
     class Factory(

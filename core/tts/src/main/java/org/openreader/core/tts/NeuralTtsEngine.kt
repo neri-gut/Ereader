@@ -18,6 +18,8 @@ class NeuralTtsEngine(
     private val mutex = Mutex()
     private var tts: OfflineTts? = null
     private var loadedDir: File? = null
+    @Volatile
+    var speakerId: Int = 0
 
     suspend fun prepare(modelDir: File) {
         mutex.withLock {
@@ -53,7 +55,11 @@ class NeuralTtsEngine(
     ): PcmBuffer = withContext(defaultDispatcher) {
         mutex.withLock {
             val engine = tts ?: error("Motor neuronal no inicializado")
-            val audio = engine.generate(text = text, sid = 0, speed = speed.coerceIn(0.5f, 3.0f))
+            val audio = engine.generate(
+                text = text,
+                sid = speakerId.coerceAtLeast(0),
+                speed = speed.coerceIn(0.5f, 3.0f)
+            )
             PcmBuffer(
                 paragraphIndex = paragraphIndex,
                 text = text,

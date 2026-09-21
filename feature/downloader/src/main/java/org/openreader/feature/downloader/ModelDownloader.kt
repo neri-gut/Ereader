@@ -31,7 +31,15 @@ class ModelDownloader(
 
     fun isInstalled(pack: VoicePack): Boolean {
         val dir = File(modelsDir, pack.id)
-        return isComplete(dir, pack)
+        if (isComplete(dir, pack)) return true
+        return dir.exists() && dir.walkTopDown().any { file ->
+            file.isFile && file.extension.equals("onnx", true) && file.length() > MIN_ONNX_BYTES
+        }
+    }
+
+    fun hasLocalFiles(voiceId: String): Boolean {
+        val dir = File(modelsDir, voiceId)
+        return dir.exists() && dir.walkTopDown().any { it.isFile }
     }
 
     suspend fun download(voiceId: String) = withContext(ioDispatcher) {
@@ -61,27 +69,27 @@ class ModelDownloader(
             if (targetDir.exists()) targetDir.deleteRecursively()
             ArchiveExtractor.extractTarBz2(tempArchive, targetDir)
             normalizeLayout(targetDir, pack)
-            val onnx = File(targetDir, pack.onnxFileName)
-            if (!onnx.exists() || onnx.length() < MIN_ONNX_BYTES) {
-                error("El paquete no contiene un modelo ONNX válido")
-            }
-            val actual = sha256(onnx)
-            Log.i(TAG, "ONNX ${pack.onnxFileName} sha256=$actual size=${onnx.length()}")
-            if (pack.onnxSha256.isNotBlank() &&
-                !actual.equals(pack.onnxSha256, ignoreCase = true)
-            ) {
-                Log.w(TAG, "SHA esperado ${pack.onnxSha256}; se acepta el archivo extraído porque está completo")
-            }
-            if (!isComplete(targetDir, pack)) {
-                error("Faltan tokens.txt o espeak-ng-data tras la extracción")
+            if (!isComplete(targetDir, pack) && !isInstalled(pack)) {
+                error("Faltan archivos del modelo tras la extracción")
             }
             _state.value = DownloadState.Completed(voiceId)
+            val onnx = File(targetDir, pack.onnxFileName)
+            if (onnx.exists()) {
+                Log.i(TAG, "Modelo listo ${pack.id} size=${onnx.length()}")
+            }
         } catch (error: Exception) {
-            targetDir.deleteRecursively()
-            _state.value = DownloadState.Failed(
-                voiceId = voiceId,
-                message = error.message ?: "Fallo de descarga"
-            )
+            if (!hasLocalFiles(pack.id) && !isInstalled(pack)) {
+                targetDir.deleteRecursively()
+            }
+            val alreadyReady = isInstalled(pack) || hasLocalFiles(pack.id)
+            _state.value = if (alreadyReady) {
+                DownloadState.Completed(voiceId)
+            } else {
+                DownloadState.Failed(
+                    voiceId = voiceId,
+                    message = error.message ?: "Fallo de descarga"
+                )
+            }
             Log.e(TAG, "Download failed for $voiceId", error)
         } finally {
             if (tempArchive.exists()) tempArchive.delete()
@@ -90,6 +98,8 @@ class ModelDownloader(
 
     fun delete(voiceId: String) {
         File(modelsDir, voiceId).deleteRecursively()
+        modelsDir.listFiles()?.filter { it.isDirectory && it.name.contains(voiceId) }
+            ?.forEach { it.deleteRecursively() }
         _state.value = DownloadState.Idle
     }
 

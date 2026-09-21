@@ -109,6 +109,12 @@ fun SettingsScreen(
         )
 
         SettingsSection("Audio")
+        Text(
+            "Las voces se organizan en Menú → Voces: listas o catálogo, idioma, mujer/hombre y sistema o neuronal.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
         Text("Motor de voz")
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -132,7 +138,7 @@ fun SettingsScreen(
             valueRange = TTSConfig.MIN_SPEECH_RATE..TTSConfig.MAX_SPEECH_RATE
         )
         Button(onClick = onOpenVoices, modifier = Modifier.padding(bottom = 24.dp)) {
-            Text("Gestionar voces neuronales")
+            Text("Abrir catálogo de voces")
         }
 
         SettingsSection("Acerca de")

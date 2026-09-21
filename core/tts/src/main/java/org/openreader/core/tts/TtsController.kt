@@ -77,10 +77,12 @@ class TtsController(
 
     fun updateConfig(value: TTSConfig) {
         val engineChanged = value.engineType != config.engineType ||
-            value.selectedVoiceId != config.selectedVoiceId
+            value.selectedVoiceId != config.selectedVoiceId ||
+            value.speakerId != config.speakerId
         if (engineChanged) stop()
         config = value
         neuralQueue.setSpeechRate(value.speechRate)
+        neural.speakerId = value.speakerId
         systemEngine.applyConfig(value)
     }
 

@@ -41,7 +41,12 @@ fun TtsControls(
     }
     Column(modifier = modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) {
         Text(
-            text = "$engineName · $voiceLabel",
+            text = buildString {
+                append("$engineName · $voiceLabel")
+                if (config.engineType == TTSEngineType.SHERPA_ONNX_PIPER && config.speakerId > 0) {
+                    append(" · hablante ${config.speakerId + 1}")
+                }
+            },
             style = MaterialTheme.typography.labelLarge
         )
         Text(
