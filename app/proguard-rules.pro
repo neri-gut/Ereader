@@ -1,0 +1,4 @@
+-keep class com.k2fsa.sherpa.onnx.** { *; }
+-keep class com.tom_roush.pdfbox.** { *; }
+-dontwarn com.tom_roush.pdfbox.**
+-keep class androidx.room.** { *; }

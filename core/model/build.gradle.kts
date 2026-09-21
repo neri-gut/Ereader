@@ -21,5 +21,5 @@ android {
 }
 
 dependencies {
-    // Modelos puros en Kotlin sin dependencias externas pesadas
+    testImplementation(libs.junit)
 }

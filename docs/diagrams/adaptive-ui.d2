@@ -1,0 +1,22 @@
+direction: right
+
+compact: "POCO F7 Compact < 600dp" {
+  barra: Barra superior
+  texto: Texto 100% ancho
+  tts_sheet: Bottom sheet TTS plegable
+  ajustes: ModalBottomSheet de ajustes
+}
+
+expanded: "MatePad 12 X Expanded >= 840dp" {
+  rail: Navigation Rail
+  panel: Panel de ajustes lateral
+  texto: "Columna centrada 42rem-48rem"
+  tts_bar: Controles TTS junto al texto
+}
+
+user: Lector {
+  shape: person
+}
+
+user -> compact: Teléfono
+user -> expanded: Tablet
