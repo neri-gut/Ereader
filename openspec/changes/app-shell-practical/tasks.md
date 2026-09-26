@@ -20,4 +20,5 @@
 
 ## CI
 
-- [ ] Arreglar el workflow OpenReader CI. El PR `Feature/init reader` falla en el paso **Set up Android SDK** (`android-actions/setup-android@v3`): `sdkmanager` termina con `Failed to find package 'tools'` y exit code 1. El paquete `tools` ya no existe en el SDK actual, así que el job no llega a `testDebugUnitTest` ni a `assembleDebug`. Quitar esa instalación obsoleta (subir la acción o limitar los paquetes a `platforms;android-35` y `build-tools`) y dejar el run del PR en verde.
+- [x] Arreglar el workflow OpenReader CI. `android-actions/setup-android@v3` pedía el paquete `tools`, que el SDK ya no sirve. CI corre solo con push a `develop`, usa `setup-android@v4` con `platform-tools`, `platforms;android-35` y `build-tools;35.0.0`. Push a `main` lo publica `.github/workflows/release.yml`: rama `release/vX.Y.Z`, tag `vX.Y.Z` y GitHub Release, y falla si el tag ya existe o `versionCode` no sube.
+
