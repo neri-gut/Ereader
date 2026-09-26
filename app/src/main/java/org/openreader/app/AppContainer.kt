@@ -6,7 +6,9 @@ import org.openreader.core.database.DocumentIdHasher
 import org.openreader.core.database.OpenReaderDatabase
 import org.openreader.core.database.PreferencesRepository
 import org.openreader.core.database.ProgressRepository
+import org.openreader.core.pdf.ParagraphTextCache
 import org.openreader.core.pdf.PdfTextExtractor
+import java.io.File
 import org.openreader.core.tts.TtsController
 import org.openreader.feature.downloader.DownloaderViewModel
 import org.openreader.feature.downloader.ModelDownloader
@@ -22,7 +24,8 @@ class AppContainer(context: Context) {
     val progressRepository = ProgressRepository(database.readingProgressDao(), ioDispatcher)
     val preferencesRepository = PreferencesRepository(appContext, ioDispatcher)
     val documentIdHasher = DocumentIdHasher(ioDispatcher)
-    val pdfTextExtractor = PdfTextExtractor(appContext, ioDispatcher)
+    val pdfTextExtractor = PdfTextExtractor(appContext, ioDispatcher, defaultDispatcher)
+    val paragraphTextCache = ParagraphTextCache(File(appContext.filesDir, "extracts"))
     val modelDownloader = ModelDownloader(appContext, ioDispatcher)
     val ttsController = TtsController(appContext, ioDispatcher, defaultDispatcher).also { controller ->
         controller.setModelsDir(modelDownloader.modelsDirectory())
@@ -31,6 +34,7 @@ class AppContainer(context: Context) {
     val libraryFactory = LibraryViewModel.Factory(progressRepository, documentIdHasher)
     val readerFactory = ReaderViewModel.Factory(
         extractor = pdfTextExtractor,
+        paragraphCache = paragraphTextCache,
         hasher = documentIdHasher,
         progressRepository = progressRepository,
         preferencesRepository = preferencesRepository,

@@ -25,6 +25,8 @@ import org.openreader.core.model.ReaderTheme
 import org.openreader.core.model.ReadingProgress
 import org.openreader.core.model.TTSConfig
 import org.openreader.core.model.TTSEngineType
+import org.openreader.core.pdf.ParagraphCheckpoint
+import org.openreader.core.pdf.ParagraphTextCache
 import org.openreader.core.pdf.PdfTextExtractor
 import org.openreader.core.tts.TtsController
 import org.openreader.feature.downloader.ModelDownloader
@@ -43,11 +45,13 @@ data class ReaderUiState(
     val localPdfPath: String? = null,
     val extractPage: Int = 0,
     val extractTotal: Int = 0,
-    val pdfPageMode: PdfPageMode = PdfPageMode.CONTINUOUS
+    val pdfPageMode: PdfPageMode = PdfPageMode.CONTINUOUS,
+    val extractComplete: Boolean = false
 )
 
 class ReaderViewModel(
     private val extractor: PdfTextExtractor,
+    private val paragraphCache: ParagraphTextCache,
     private val hasher: DocumentIdHasher,
     private val progressRepository: ProgressRepository,
     private val preferencesRepository: PreferencesRepository,
@@ -65,6 +69,7 @@ class ReaderViewModel(
     )
     val audioState: StateFlow<AudioState> = ttsController.state
     private var openJob: Job? = null
+    private var activeUri: String? = null
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
@@ -95,8 +100,13 @@ class ReaderViewModel(
     }
 
     fun open(context: Context, uri: Uri, fileName: String) {
+        val uriKey = uri.toString()
+        val state = _uiState.value
+        if (state.contentUri == uriKey && state.extractComplete && state.paragraphs.isNotEmpty()) return
+        if (activeUri == uriKey && openJob?.isActive == true) return
         openJob?.cancel()
         ttsController.stop()
+        activeUri = uriKey
         openJob = viewModelScope.launch(Dispatchers.IO) {
             runCatching {
                 context.contentResolver.takePersistableUriPermission(
@@ -104,54 +114,87 @@ class ReaderViewModel(
                     Intent.FLAG_GRANT_READ_URI_PERMISSION
                 )
             }
+            val switching = _uiState.value.contentUri != uriKey
             _uiState.update {
                 it.copy(
                     loading = true,
+                    extractComplete = false,
                     error = null,
                     fileName = fileName,
-                    contentUri = uri.toString(),
+                    contentUri = uriKey,
                     showNativePdf = true,
-                    paragraphs = emptyList(),
-                    localPdfPath = null,
-                    extractPage = 0,
-                    extractTotal = 0
+                    paragraphs = if (switching) emptyList() else it.paragraphs,
+                    localPdfPath = if (switching) null else it.localPdfPath,
+                    extractPage = if (switching) 0 else it.extractPage,
+                    extractTotal = if (switching) 0 else it.extractTotal
                 )
             }
+            var hash = ""
+            val durable = mutableListOf<ParagraphData>()
+            val pendingPage = mutableListOf<ParagraphData>()
+            var nextPage = 1
+            var carry = ""
+            var repeated = emptySet<String>()
+            var sealed = false
+            fun visibleParagraphs(): List<ParagraphData> = durable + pendingPage
             try {
                 val file = PdfTextExtractor.materialize(context, uri)
                 _uiState.update { it.copy(localPdfPath = file.absolutePath) }
-                val hash = file.inputStream().use { hasher.hash(it, file.length()) }
+                hash = file.inputStream().use { hasher.hash(it, file.length()) }
                 val saved = progressRepository.getProgress(hash)
-                val paragraphs = mutableListOf<ParagraphData>()
-                extractor.extractFromFile(file) { page, total ->
-                    _uiState.update { it.copy(extractPage = page, extractTotal = total) }
-                }.collect { paragraph ->
-                    paragraphs += paragraph
-                    if (paragraphs.size == 1 || paragraphs.size % 6 == 0) {
-                        _uiState.update { it.copy(paragraphs = paragraphs.toList()) }
+                val cached = paragraphCache.load(hash)
+                if (cached != null) {
+                    durable += cached.paragraphs
+                    nextPage = cached.nextPage
+                    carry = cached.carry
+                    repeated = cached.repeated
+                    if (durable.isNotEmpty() || cached.done) {
+                        showExtracted(
+                            hash = hash,
+                            fileName = fileName,
+                            contentUri = uriKey,
+                            paragraphs = durable,
+                            saved = saved,
+                            loading = !cached.done
+                        )
+                    }
+                    if (cached.done) {
+                        sealed = true
+                        return@launch
                     }
                 }
-                val lastIndex = (paragraphs.size - 1).coerceAtLeast(0)
-                val start = saved?.paragraphIndex?.coerceIn(0, lastIndex) ?: 0
-                ttsController.updateParagraphs(paragraphs)
-                progressRepository.saveProgress(
-                    ReadingProgress(
-                        fileHash = hash,
-                        fileName = fileName,
-                        paragraphIndex = start,
-                        charOffset = saved?.charOffset ?: 0,
-                        totalParagraphs = paragraphs.size
-                    ),
-                    uri.toString()
-                )
-                _uiState.update {
-                    it.copy(
-                        fileHash = hash,
-                        paragraphs = paragraphs.toList(),
-                        currentParagraph = start,
-                        loading = false
-                    )
+                extractor.extractFromFile(
+                    file = file,
+                    startPage = nextPage,
+                    startId = durable.size,
+                    initialCarry = carry,
+                    knownRepeated = if (cached != null) repeated else null,
+                    onProgress = { page, total ->
+                        _uiState.update { it.copy(extractPage = page, extractTotal = total) }
+                    },
+                    onCheckpoint = { page, pageCarry, pageRepeated ->
+                        durable += pendingPage
+                        pendingPage.clear()
+                        nextPage = page
+                        carry = pageCarry
+                        repeated = pageRepeated
+                        val finishedPage = page - 1
+                        if (finishedPage > 0 && finishedPage % CHECKPOINT_PAGES == 0) {
+                            writeCheckpoint(hash, durable, nextPage, carry, repeated, done = false)
+                        }
+                    }
+                ).collect { paragraph ->
+                    pendingPage += paragraph
+                    val shown = visibleParagraphs()
+                    if (shown.size == 1 || shown.size % PUBLISH_EVERY == 0) {
+                        publishParagraphs(shown, hash)
+                    }
                 }
+                durable += pendingPage
+                pendingPage.clear()
+                writeCheckpoint(hash, durable, nextPage, "", repeated, done = true)
+                sealed = true
+                finishOpen(hash, fileName, uriKey, durable, saved)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Throwable) {
@@ -162,7 +205,108 @@ class ReaderViewModel(
                         error = error.message ?: "Error al extraer el texto. Puedes usar la vista PDF nativa."
                     )
                 }
+            } finally {
+                if (!sealed && hash.isNotBlank() && (durable.isNotEmpty() || nextPage > 1)) {
+                    writeCheckpoint(hash, durable, nextPage, carry, repeated, done = false)
+                }
             }
+        }
+    }
+
+    private fun publishParagraphs(paragraphs: List<ParagraphData>, hash: String) {
+        val snapshot = paragraphs.toList()
+        _uiState.update {
+            it.copy(
+                fileHash = hash.ifBlank { it.fileHash },
+                paragraphs = snapshot,
+                loading = true,
+                extractComplete = false
+            )
+        }
+        ttsController.updateParagraphs(snapshot)
+    }
+
+    private fun showExtracted(
+        hash: String,
+        fileName: String,
+        contentUri: String,
+        paragraphs: List<ParagraphData>,
+        saved: ReadingProgress?,
+        loading: Boolean
+    ) {
+        val snapshot = paragraphs.toList()
+        val lastIndex = (snapshot.size - 1).coerceAtLeast(0)
+        val start = saved?.paragraphIndex?.coerceIn(0, lastIndex) ?: 0
+        ttsController.updateParagraphs(snapshot)
+        _uiState.update {
+            it.copy(
+                fileHash = hash,
+                fileName = fileName,
+                contentUri = contentUri,
+                paragraphs = snapshot,
+                currentParagraph = start,
+                loading = loading,
+                extractComplete = !loading
+            )
+        }
+    }
+
+    private fun writeCheckpoint(
+        hash: String,
+        paragraphs: List<ParagraphData>,
+        nextPage: Int,
+        carry: String,
+        repeated: Set<String>,
+        done: Boolean
+    ) {
+        paragraphCache.save(
+            hash,
+            ParagraphCheckpoint(
+                paragraphs = paragraphs.toList(),
+                nextPage = nextPage,
+                carry = carry,
+                repeated = repeated,
+                done = done
+            )
+        )
+    }
+
+    private suspend fun finishOpen(
+        hash: String,
+        fileName: String,
+        contentUri: String,
+        paragraphs: List<ParagraphData>,
+        saved: ReadingProgress?
+    ) {
+        val snapshot = paragraphs.toList()
+        val lastIndex = (snapshot.size - 1).coerceAtLeast(0)
+        val alreadyHere = _uiState.value.fileHash == hash &&
+            _uiState.value.paragraphs.isNotEmpty() &&
+            _uiState.value.currentParagraph in snapshot.indices
+        val start = if (alreadyHere) {
+            _uiState.value.currentParagraph
+        } else {
+            saved?.paragraphIndex?.coerceIn(0, lastIndex) ?: 0
+        }
+        ttsController.updateParagraphs(snapshot)
+        progressRepository.saveProgress(
+            ReadingProgress(
+                fileHash = hash,
+                fileName = fileName,
+                paragraphIndex = start,
+                charOffset = saved?.charOffset ?: 0,
+                totalParagraphs = snapshot.size
+            ),
+            contentUri
+        )
+        _uiState.update {
+            it.copy(
+                fileHash = hash,
+                paragraphs = snapshot,
+                currentParagraph = start,
+                loading = false,
+                extractComplete = true
+            )
         }
     }
 
@@ -275,6 +419,7 @@ class ReaderViewModel(
 
     class Factory(
         private val extractor: PdfTextExtractor,
+        private val paragraphCache: ParagraphTextCache,
         private val hasher: DocumentIdHasher,
         private val progressRepository: ProgressRepository,
         private val preferencesRepository: PreferencesRepository,
@@ -285,6 +430,7 @@ class ReaderViewModel(
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             return ReaderViewModel(
                 extractor,
+                paragraphCache,
                 hasher,
                 progressRepository,
                 preferencesRepository,
@@ -292,5 +438,10 @@ class ReaderViewModel(
                 modelDownloader
             ) as T
         }
+    }
+
+    private companion object {
+        const val PUBLISH_EVERY = 24
+        const val CHECKPOINT_PAGES = 4
     }
 }

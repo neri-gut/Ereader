@@ -41,6 +41,42 @@ class ParagraphNormalizerTest {
     }
 
     @Test
+    fun keepsParagraphsSeparatedByBlankLines() {
+        val chunk = ParagraphNormalizer.processPage(
+            "Uno dos tres.\n\nCuatro cinco seis.",
+            emptySet(),
+            ""
+        )
+        assertEquals(listOf("Uno dos tres.", "Cuatro cinco seis."), chunk.paragraphs)
+        assertEquals("", chunk.carry)
+    }
+
+    @Test
+    fun wrappedLinesStayInsideTheSameParagraph() {
+        val chunk = ParagraphNormalizer.processPage(
+            "Este es un párrafo que continúa\nen la línea siguiente sin punto final.",
+            emptySet(),
+            ""
+        )
+        assertEquals(
+            listOf("Este es un párrafo que continúa en la línea siguiente sin punto final."),
+            chunk.paragraphs
+        )
+        assertEquals("", chunk.carry)
+    }
+
+    @Test
+    fun unfinishedParagraphIsCarriedToTheNextPage() {
+        val chunk = ParagraphNormalizer.processPage(
+            "La frase sigue\nsin terminar",
+            emptySet(),
+            ""
+        )
+        assertTrue(chunk.paragraphs.isEmpty())
+        assertEquals("La frase sigue sin terminar", chunk.carry)
+    }
+
+    @Test
     fun keepsSentenceBoundariesAsSeparateLines() {
         val joined = ParagraphNormalizer.joinLines(
             listOf(

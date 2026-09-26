@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
@@ -67,6 +68,7 @@ fun ReaderScreen(
         ReaderTopBar(
             fileName = state.fileName,
             showNativePdf = state.showNativePdf,
+            textReady = state.paragraphs.isNotEmpty(),
             showTtsBar = state.showTtsBar,
             pdfPageMode = state.pdfPageMode,
             onOpenMenu = onOpenMenu,
@@ -75,15 +77,35 @@ fun ReaderScreen(
             onPdfPageMode = onPdfPageMode
         )
         if (state.loading) {
+            val fraction = if (state.extractTotal > 0) {
+                state.extractPage.toFloat() / state.extractTotal.toFloat()
+            } else {
+                0f
+            }
+            if (state.extractTotal > 0) {
+                LinearProgressIndicator(
+                    progress = { fraction.coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth(),
+                    color = palette.text,
+                    trackColor = palette.text.copy(alpha = 0.15f)
+                )
+            } else {
+                LinearProgressIndicator(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = palette.text,
+                    trackColor = palette.text.copy(alpha = 0.15f)
+                )
+            }
             val label = if (state.extractTotal > 0) {
-                "Extrayendo texto ${state.extractPage}/${state.extractTotal}"
+                "Texto ${state.extractPage}/${state.extractTotal}. El PDF ya se puede leer."
             } else {
                 "Abriendo documento…"
             }
             Text(
                 label,
                 color = palette.text,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                fontSize = 12.sp,
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 2.dp)
             )
         }
         ReaderBody(
@@ -144,13 +166,8 @@ private fun ReaderBody(
             )
             state.loading -> {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                val progress = if (state.extractTotal > 0) {
-                    "Extrayendo ${state.extractPage}/${state.extractTotal}"
-                } else {
-                    "Abriendo PDF…"
-                }
                 Text(
-                    progress,
+                    "Preparando el texto. Vista → PDF sigue disponible.",
                     color = palette.text,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
@@ -189,9 +206,9 @@ private fun ContinuousText(
     val listState = rememberLazyListState(
         initialFirstVisibleItemIndex = currentParagraph.coerceIn(0, (paragraphs.size - 1).coerceAtLeast(0))
     )
-    LaunchedEffect(currentParagraph, paragraphs.size) {
-        if (paragraphs.isNotEmpty()) {
-            listState.animateScrollToItem(currentParagraph.coerceIn(0, paragraphs.lastIndex))
+    LaunchedEffect(currentParagraph) {
+        if (paragraphs.isNotEmpty() && currentParagraph in paragraphs.indices) {
+            listState.animateScrollToItem(currentParagraph)
         }
     }
     val maxWidth = if (expanded) theme.maxContainerWidthRem.rem else 48.rem

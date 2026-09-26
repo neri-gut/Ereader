@@ -62,21 +62,42 @@ object ParagraphNormalizer {
     }
 
     fun processPage(rawText: String, repeated: Set<String>, carry: String): PageChunk {
-        val cleanedLines = pageLines(rawText)
-            .filterNot { line -> isPageNumber(line) || canonicalize(line) in repeated }
-        val joined = joinLines(cleanedLines)
-        val combined = if (carry.isBlank()) {
-            joined
-        } else if (joined.isBlank()) {
-            carry
-        } else {
-            mergeCarry(carry, joined)
+        val blocks = rawText.split(PARAGRAPH_BREAK).filter { it.isNotBlank() }
+        if (blocks.isEmpty()) {
+            val pending = carry.trim()
+            return if (pending.isBlank() || !endsSentence(pending)) {
+                PageChunk(emptyList(), pending)
+            } else {
+                PageChunk(listOf(pending), "")
+            }
         }
-        val parts = splitParagraphs(combined)
-        if (parts.isEmpty()) return PageChunk(emptyList(), "")
-        val complete = parts.dropLast(1)
-        val leftover = parts.last()
-        return PageChunk(complete, leftover)
+        val emitted = mutableListOf<String>()
+        var pending = carry
+        blocks.forEachIndexed { index, block ->
+            val lines = pageLines(block)
+                .filterNot { line -> isPageNumber(line) || canonicalize(line) in repeated }
+            val joined = joinLines(lines)
+            val combined = when {
+                pending.isBlank() -> joined
+                joined.isBlank() -> pending
+                else -> mergeCarry(pending, joined)
+            }
+            val parts = splitParagraphs(combined)
+            val lastBlock = index == blocks.lastIndex
+            if (!lastBlock) {
+                emitted += parts
+                pending = ""
+            } else if (parts.isEmpty()) {
+                pending = ""
+            } else if (endsSentence(parts.last())) {
+                emitted += parts
+                pending = ""
+            } else {
+                emitted += parts.dropLast(1)
+                pending = parts.last()
+            }
+        }
+        return PageChunk(emitted, pending)
     }
 
     fun joinLines(lines: List<String>): String {
@@ -116,15 +137,24 @@ object ParagraphNormalizer {
     }
 
     fun splitParagraphs(text: String): List<String> =
-        text.split(PARAGRAPH_BREAK)
-            .map { it.replace('\n', ' ').replace(MULTI_SPACE, " ").trim() }
+        text.split('\n')
+            .map { it.replace(MULTI_SPACE, " ").trim() }
             .filter { it.isNotEmpty() }
+
+    fun edgeLines(rawText: String): List<String> {
+        val lines = pageLines(rawText)
+        if (lines.isEmpty()) return emptyList()
+        return (lines.take(2) + lines.takeLast(2)).distinct()
+    }
 
     internal fun pageLines(rawText: String): List<String> =
         rawText.split('\n').map { it.trim() }.filter { it.isNotEmpty() }
 
     internal fun isPageNumber(line: String): Boolean =
         PAGE_NUMBER.matches(line.trim())
+
+    private fun endsSentence(text: String): Boolean =
+        text.isNotBlank() && SENTENCE_END.containsMatchIn(text.trim())
 
     private fun shouldJoinWrappedLine(current: String, next: String): Boolean {
         if (current.isEmpty() || next.isEmpty()) return false

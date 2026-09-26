@@ -1,0 +1,29 @@
+direction: down
+
+pantalla: Pantalla lectora {
+  shape: rectangle
+  top: Zona overlay superior\n48dp + status inset {
+    style.fill: "#E3F2FD"
+  }
+  muerto_izq: Padding izquierdo\nzona muerta {
+    style.fill: "#FFF8E1"
+  }
+  texto: Cuerpo del párrafo\ntap = seleccionar {
+    style.fill: "#E8F5E9"
+  }
+  muerto_der: Padding derecho\nzona muerta {
+    style.fill: "#FFF8E1"
+  }
+  entre: Espacio entre párrafos\nzona muerta {
+    style.fill: "#FFF8E1"
+  }
+  bottom: Transport TTS\nsolo con cromo {
+    style.fill: "#E3F2FD"
+  }
+}
+
+pantalla.top -> pantalla.texto
+pantalla.muerto_izq -> pantalla.texto
+pantalla.texto -> pantalla.muerto_der
+pantalla.texto -> pantalla.entre
+pantalla.entre -> pantalla.bottom

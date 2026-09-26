@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.sp
 fun ReaderTopBar(
     fileName: String,
     showNativePdf: Boolean,
+    textReady: Boolean,
     showTtsBar: Boolean,
     pdfPageMode: PdfPageMode,
     onOpenMenu: () -> Unit,
@@ -52,7 +53,15 @@ fun ReaderTopBar(
             TextButton(onClick = { optionsOpen = true }) { Text("Vista") }
             DropdownMenu(expanded = optionsOpen, onDismissRequest = { optionsOpen = false }) {
                 DropdownMenuItem(
-                    text = { Text(if (showNativePdf) "Cambiar a texto" else "Cambiar a PDF") },
+                    text = {
+                        Text(
+                            when {
+                                showNativePdf && !textReady -> "Texto (extrayendo)"
+                                showNativePdf -> "Cambiar a texto"
+                                else -> "Cambiar a PDF"
+                            }
+                        )
+                    },
                     onClick = {
                         optionsOpen = false
                         onToggleNative()
