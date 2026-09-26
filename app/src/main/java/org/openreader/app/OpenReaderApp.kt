@@ -159,7 +159,7 @@ fun OpenReaderApp(
     BackHandler(enabled = readerChrome || (stack.size > 1 && !drawerState.isOpen)) {
         when {
             readerChrome -> readerViewModel.hideChrome()
-            stack.size > 1 -> stack = stack.dropLast()
+            stack.size > 1 -> stack = stack.dropLast(1)
         }
     }
     BackHandler(enabled = drawerState.isOpen) { closeDrawer() }
