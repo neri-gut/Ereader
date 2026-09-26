@@ -16,7 +16,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -113,7 +113,7 @@ private fun SettingsRow(title: String, detail: String, onClick: () -> Unit) {
         headlineContent = { Text(title) },
         supportingContent = { Text(detail) },
         trailingContent = {
-            Icon(Icons.Filled.KeyboardArrowRight, contentDescription = null)
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
         },
         modifier = Modifier.clickable(onClick = onClick)
     )
@@ -210,7 +210,7 @@ private fun AudioSettings(
     }
     SettingsRow(
         title = "Elegir voz",
-        detail = "Listas, idiomas y modelos propios",
+        detail = "Idioma, género y modelos",
         onClick = onOpenVoices
     )
 }

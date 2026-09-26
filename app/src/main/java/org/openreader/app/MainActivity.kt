@@ -6,7 +6,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
 import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
-import org.openreader.app.ui.theme.OpenReaderTheme
 
 class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
@@ -16,12 +15,10 @@ class MainActivity : ComponentActivity() {
         val container = (application as OpenReaderApplication).container
         setContent {
             val windowSizeClass = calculateWindowSizeClass(this)
-            OpenReaderTheme {
-                OpenReaderApp(
-                    container = container,
-                    widthSizeClass = windowSizeClass.widthSizeClass
-                )
-            }
+            OpenReaderApp(
+                container = container,
+                widthSizeClass = windowSizeClass.widthSizeClass
+            )
         }
     }
 }

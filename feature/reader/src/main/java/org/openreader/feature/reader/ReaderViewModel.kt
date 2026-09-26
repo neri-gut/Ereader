@@ -111,27 +111,27 @@ class ReaderViewModel(
         openJob?.cancel()
         ttsController.stop()
         activeUri = uriKey
+        val switching = _uiState.value.contentUri != uriKey
+        _uiState.update {
+            it.copy(
+                loading = true,
+                extractComplete = false,
+                error = null,
+                fileName = fileName,
+                contentUri = uriKey,
+                showNativePdf = false,
+                chromeVisible = true,
+                paragraphs = if (switching) emptyList() else it.paragraphs,
+                localPdfPath = if (switching) null else it.localPdfPath,
+                extractPage = if (switching) 0 else it.extractPage,
+                extractTotal = if (switching) 0 else it.extractTotal
+            )
+        }
         openJob = viewModelScope.launch(Dispatchers.IO) {
             runCatching {
                 context.contentResolver.takePersistableUriPermission(
                     uri,
                     Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
-            }
-            val switching = _uiState.value.contentUri != uriKey
-            _uiState.update {
-                it.copy(
-                    loading = true,
-                    extractComplete = false,
-                    error = null,
-                    fileName = fileName,
-                    contentUri = uriKey,
-                    showNativePdf = false,
-                    chromeVisible = true,
-                    paragraphs = if (switching) emptyList() else it.paragraphs,
-                    localPdfPath = if (switching) null else it.localPdfPath,
-                    extractPage = if (switching) 0 else it.extractPage,
-                    extractTotal = if (switching) 0 else it.extractTotal
                 )
             }
             var hash = ""
