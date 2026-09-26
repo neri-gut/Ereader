@@ -68,7 +68,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.E
+import kotlin.math.abs
+import kotlin.math.ln
 import kotlin.math.roundToInt
+import kotlinx.coroutines.withTimeoutOrNull
 import org.openreader.core.model.AudioState
 import org.openreader.core.model.ParagraphData
 import org.openreader.core.model.ReaderTheme
@@ -482,49 +486,55 @@ private fun Modifier.paragraphScrub(
     onScrub: (Int?) -> Unit
 ): Modifier = pointerInput(index, lastIndex) {
     val slop = viewConfiguration.touchSlop
-    val step = 36.dp.toPx()
+    val fullTravel = 220.dp.toPx()
     awaitEachGesture {
         val down = awaitFirstDown(requireUnconsumed = false)
         val origin = down.position
-        var scrubbing = false
-        var current = index
-        var accumulated = 0f
-        while (true) {
-            val event = awaitPointerEvent()
-            val change = event.changes.firstOrNull { it.id == down.id } ?: break
-            if (!change.pressed) {
-                if (scrubbing) {
-                    onSelect(current)
-                    onScrub(null)
-                } else if ((change.position - origin).getDistance() <= slop) {
-                    onSelect(index)
+        val held = withTimeoutOrNull(350) {
+            var change = down
+            while (true) {
+                if (!change.pressed) return@withTimeoutOrNull 1
+                if ((change.position - origin).getDistance() > slop) return@withTimeoutOrNull 2
+                val event = awaitPointerEvent()
+                change = event.changes.firstOrNull { it.id == down.id } ?: return@withTimeoutOrNull 2
+            }
+            @Suppress("UNREACHABLE_CODE")
+            2
+        }
+        if (held == null) {
+            var current = index
+            onScrub(current)
+            while (true) {
+                val event = awaitPointerEvent()
+                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                if (!change.pressed) break
+                change.consume()
+                val next = paragraphAtTravel(
+                    start = index,
+                    lastIndex = lastIndex,
+                    dy = change.position.y - origin.y,
+                    fullTravel = fullTravel
+                )
+                if (next != current) {
+                    current = next
+                    onScrub(current)
                 }
-                break
             }
-            val elapsed = change.uptimeMillis - down.uptimeMillis
-            val drifted = (change.position - origin).getDistance() > slop
-            if (!scrubbing && drifted && elapsed < 2_000) break
-            if (!scrubbing && elapsed >= 2_000) {
-                scrubbing = true
-                onScrub(current)
-            }
-            if (!scrubbing) continue
-            accumulated += change.positionChange().y
-            change.consume()
-            var moved = false
-            while (accumulated >= step && current < lastIndex) {
-                current += 1
-                accumulated -= step
-                moved = true
-            }
-            while (accumulated <= -step && current > 0) {
-                current -= 1
-                accumulated += step
-                moved = true
-            }
-            if (moved) onScrub(current)
+            onSelect(current)
+            onScrub(null)
+        } else if (held == 1) {
+            onSelect(index)
         }
     }
+}
+
+private fun paragraphAtTravel(start: Int, lastIndex: Int, dy: Float, fullTravel: Float): Int {
+    val reach = if (dy >= 0f) lastIndex - start else start
+    if (reach <= 0 || fullTravel <= 0f) return start
+    val t = (abs(dy) / fullTravel).coerceIn(0f, 1f)
+    val curved = ln(1f + t * (E.toFloat() - 1f))
+    val delta = (curved * reach).roundToInt()
+    return (start + if (dy >= 0f) delta else -delta).coerceIn(0, lastIndex)
 }
 
 @Composable
