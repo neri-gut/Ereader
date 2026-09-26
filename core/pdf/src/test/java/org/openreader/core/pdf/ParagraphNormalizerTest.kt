@@ -41,6 +41,19 @@ class ParagraphNormalizerTest {
     }
 
     @Test
+    fun singleLineBreaksStayInTheSameParagraph() {
+        val chunk = ParagraphNormalizer.processPage(
+            "Primera oración termina aquí.\nSegunda oración empieza con mayúscula.\nY sigue el mismo párrafo.",
+            emptySet(),
+            ""
+        )
+        assertEquals(
+            listOf("Primera oración termina aquí. Segunda oración empieza con mayúscula. Y sigue el mismo párrafo."),
+            chunk.paragraphs
+        )
+    }
+
+    @Test
     fun keepsParagraphsSeparatedByBlankLines() {
         val chunk = ParagraphNormalizer.processPage(
             "Uno dos tres.\n\nCuatro cinco seis.",

@@ -9,7 +9,7 @@ proceso: Corrutinas del proceso {
   io: "Dispatchers.IO\ncopia del PDF, hash, portadas, Room, DataStore"
   cpu: "Dispatchers.Default\nnormalizar párrafos y sintetizar Piper"
   vm: "ReaderViewModel\nla extracción se cancela al abrir otro PDF"
-  audio: "TtsController\nse detiene si el proceso muere"
+  audio: "TtsController\nMediaSession y foco de audio\nse detiene si el proceso muere"
 }
 
 servicio: Servicio en primer plano {

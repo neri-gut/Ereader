@@ -149,7 +149,7 @@ class ParagraphTextCache(private val root: File) {
     }
 
     companion object {
-        private const val HEADER = "openreader-paragraphs 2"
+        private const val HEADER = "openreader-paragraphs 3"
         private const val BODY = "---"
         private val HASH = Regex("^[0-9a-fA-F]{16,128}$")
     }

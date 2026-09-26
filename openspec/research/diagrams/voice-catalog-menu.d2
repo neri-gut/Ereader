@@ -1,0 +1,41 @@
+direction: down
+
+voces: Voces {
+  en_uso: "Fila En uso\nnombre · locale · motor"
+  tabs: "Listas | Explorar"
+  buscar: Buscar
+}
+
+listas: Listas {
+  activa: Voz activa
+  instaladas: Neuronales en el dispositivo
+  sistema: Sección Sistema
+}
+
+explorar: Explorar {
+  idiomas: "Español · English · …"
+  locale: Tarjetas del idioma elegido
+}
+
+tarjeta: Tarjeta {
+  primaria: "Descargar | Usar | badge En uso"
+  muestra: Icono muestra
+  menu: "Menú: Eliminar · Detalle"
+  sheet: "Sheet de hablantes\nsolo si speakerCount > 1"
+}
+
+anadir: Añadir {
+  piper: "Id Piper\nURL sherpa-onnx fija"
+  local: "SAF\n.tar.bz2 o .onnx"
+  json: "files/user-voices.json"
+}
+
+voces.tabs -> listas
+voces.tabs -> explorar
+explorar.idiomas -> explorar.locale
+listas.instaladas -> tarjeta
+explorar.locale -> tarjeta
+tarjeta.primaria -> tarjeta.sheet: multi-speaker
+anadir.piper -> json
+anadir.local -> json
+json -> explorar.idiomas: se suma al catálogo

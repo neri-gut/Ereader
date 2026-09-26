@@ -30,6 +30,27 @@ class TtsController(
         ioDispatcher = ioDispatcher
     )
     private val systemEngine = SystemTtsEngine(context, ioDispatcher)
+    private val media = ReadingMediaSession(context, object : ReadingMediaSession.Transport {
+        override fun onMediaPlay() {
+            when (_state.value) {
+                is AudioState.Paused -> resume()
+                is AudioState.Playing, is AudioState.Synthesizing -> Unit
+                else -> play(currentIndex())
+            }
+        }
+
+        override fun onMediaPause() {
+            when (_state.value) {
+                is AudioState.Playing, is AudioState.Synthesizing -> pause()
+                else -> Unit
+            }
+        }
+
+        override fun onMediaNext() = skipNext()
+        override fun onMediaPrevious() = skipPrevious()
+        override fun onMediaStop() = stop()
+    })
+    private var trackTitle: String = "OpenReader"
 
     private val _state = MutableStateFlow<AudioState>(AudioState.Idle)
     val state: StateFlow<AudioState> = _state.asStateFlow()
@@ -64,6 +85,14 @@ class TtsController(
                 }
             }
         }
+        scope.launch {
+            _state.collect { media.onAudioState(it) }
+        }
+    }
+
+    fun setTrackTitle(title: String) {
+        trackTitle = title.ifBlank { "OpenReader" }
+        media.setTitle(trackTitle)
     }
 
     fun setModelsDir(dir: File) {
@@ -87,6 +116,11 @@ class TtsController(
     }
 
     fun play(startIndex: Int) {
+        if (!media.tryAcquireFocus()) {
+            _state.value = AudioState.Error("Otro audio está usando la salida")
+            return
+        }
+        media.setTitle(trackTitle)
         stop()
         when (config.engineType) {
             TTSEngineType.SHERPA_ONNX_PIPER -> {
@@ -164,6 +198,7 @@ class TtsController(
         stop()
         systemEngine.release()
         neuralQueue.release()
+        media.release()
     }
 
     fun currentIndex(): Int = when (val current = _state.value) {

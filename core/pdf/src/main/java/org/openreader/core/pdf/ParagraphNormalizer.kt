@@ -137,8 +137,8 @@ object ParagraphNormalizer {
     }
 
     fun splitParagraphs(text: String): List<String> =
-        text.split('\n')
-            .map { it.replace(MULTI_SPACE, " ").trim() }
+        text.split(PARAGRAPH_BREAK)
+            .map { it.replace('\n', ' ').replace(MULTI_SPACE, " ").trim() }
             .filter { it.isNotEmpty() }
 
     fun edgeLines(rawText: String): List<String> {

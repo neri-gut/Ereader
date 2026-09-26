@@ -33,7 +33,7 @@ class ParagraphTextCacheTest {
         val hash = "d".repeat(64)
         val file = root.resolve("$hash.txt")
         root.mkdirs()
-        file.writeText("openreader-paragraphs 1\n0\t1\tviejo\n")
+        file.writeText("openreader-paragraphs 2\n0\t1\tviejo\n")
         val cache = ParagraphTextCache(root)
         assertNull(cache.load(hash))
         assertEquals(false, file.exists())

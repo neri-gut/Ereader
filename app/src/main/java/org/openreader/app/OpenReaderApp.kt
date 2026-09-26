@@ -1,8 +1,14 @@
 package org.openreader.app
 
+import android.Manifest
 import android.app.Activity
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -59,6 +65,17 @@ fun OpenReaderApp(
     widthSizeClass: WindowWidthSizeClass
 ) {
     val context = LocalContext.current
+    val notificationPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { }
+    fun ensurePlaybackNotification() {
+        if (Build.VERSION.SDK_INT < 33) return
+        val granted = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.POST_NOTIFICATIONS
+        ) == PackageManager.PERMISSION_GRANTED
+        if (!granted) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
     var tab by remember { mutableStateOf(AppTab.LIBRARY) }
     var hasOpenDocument by remember { mutableStateOf(false) }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
@@ -203,7 +220,10 @@ fun OpenReaderApp(
                         onPdfPageMode = readerViewModel::setPdfPageMode,
                         onTtsChange = readerViewModel::updateTts,
                         onThemeChange = readerViewModel::updateTheme,
-                        onPlay = readerViewModel::play,
+                        onPlay = {
+                            ensurePlaybackNotification()
+                            readerViewModel.play()
+                        },
                         onPause = readerViewModel::pause,
                         onResume = readerViewModel::resume,
                         onPrevious = readerViewModel::skipPrevious,

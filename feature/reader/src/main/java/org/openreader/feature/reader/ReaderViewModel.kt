@@ -377,6 +377,7 @@ class ReaderViewModel(
     }
 
     fun play() {
+        ttsController.setTrackTitle(_uiState.value.fileName)
         val snapshot = _uiState.value
         val config = ttsConfig.value
         val neuralMissing = config.engineType == TTSEngineType.SHERPA_ONNX_PIPER &&
