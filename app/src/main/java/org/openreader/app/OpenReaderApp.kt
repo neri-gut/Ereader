@@ -19,8 +19,8 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
@@ -40,10 +40,12 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -70,6 +72,11 @@ private enum class AppTab {
     SETTINGS
 }
 
+private val appStackSaver = listSaver<List<AppTab>, String>(
+    save = { tabs -> tabs.map { it.name } },
+    restore = { saved -> saved.map { AppTab.valueOf(it) } }
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OpenReaderApp(
@@ -88,9 +95,10 @@ fun OpenReaderApp(
         ) == PackageManager.PERMISSION_GRANTED
         if (!granted) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
-    var stack by remember { mutableStateOf(listOf(AppTab.LIBRARY)) }
+    var stack by rememberSaveable(stateSaver = appStackSaver) {
+        mutableStateOf(listOf(AppTab.LIBRARY))
+    }
     val tab = stack.last()
-    var hasOpenDocument by remember { mutableStateOf(false) }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val libraryViewModel: LibraryViewModel = viewModel(factory = container.libraryFactory)
@@ -101,6 +109,12 @@ fun OpenReaderApp(
     val ttsConfig by readerViewModel.ttsConfig.collectAsStateWithLifecycle()
     val readerState by readerViewModel.uiState.collectAsStateWithLifecycle()
     val screenBrightness by readerViewModel.screenBrightness.collectAsStateWithLifecycle()
+    val bookOpen = readerState.fileName.isNotBlank()
+    LaunchedEffect(bookOpen) {
+        if (!bookOpen && stack.any { it == AppTab.READER }) {
+            stack = stack.filter { it != AppTab.READER }.ifEmpty { listOf(AppTab.LIBRARY) }
+        }
+    }
     val view = LocalView.current
     val immersive = tab == AppTab.READER && !readerState.chromeVisible
     DisposableEffect(immersive, theme.type) {
@@ -126,20 +140,19 @@ fun OpenReaderApp(
     }
 
     fun openBook() {
-        hasOpenDocument = true
         stack = listOf(AppTab.LIBRARY, AppTab.READER)
     }
 
     fun goTo(destination: AppTab) {
         stack = when (destination) {
             AppTab.LIBRARY -> listOf(AppTab.LIBRARY)
-            AppTab.READER -> if (hasOpenDocument) {
+            AppTab.READER -> if (bookOpen) {
                 listOf(AppTab.LIBRARY, AppTab.READER)
             } else {
                 listOf(AppTab.LIBRARY)
             }
             AppTab.VOICES, AppTab.SETTINGS -> {
-                val root = if (hasOpenDocument) {
+                val root = if (bookOpen) {
                     listOf(AppTab.LIBRARY, AppTab.READER)
                 } else {
                     listOf(AppTab.LIBRARY)
@@ -159,7 +172,7 @@ fun OpenReaderApp(
     BackHandler(enabled = readerChrome || (stack.size > 1 && !drawerState.isOpen)) {
         when {
             readerChrome -> readerViewModel.hideChrome()
-            stack.size > 1 -> stack = stack.dropLast()
+            stack.size > 1 -> stack = stack.dropLast(1)
         }
     }
     BackHandler(enabled = drawerState.isOpen) { closeDrawer() }
@@ -189,7 +202,7 @@ fun OpenReaderApp(
                     )
                     DrawerDestination(
                         label = "Voces",
-                        icon = Icons.Filled.List,
+                        icon = Icons.AutoMirrored.Filled.List,
                         selected = tab == AppTab.VOICES,
                         onClick = { goTo(AppTab.VOICES) }
                     )
@@ -320,7 +333,7 @@ fun OpenReaderApp(
                                         speakerId = speaker
                                     )
                                 )
-                                if (hasOpenDocument) {
+                                if (bookOpen) {
                                     stack = listOf(AppTab.LIBRARY, AppTab.READER)
                                 }
                             },
