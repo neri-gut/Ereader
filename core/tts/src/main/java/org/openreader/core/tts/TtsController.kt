@@ -4,10 +4,12 @@ import android.content.Context
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.openreader.core.model.AudioState
 import org.openreader.core.model.ParagraphData
@@ -57,6 +59,7 @@ class TtsController(
 
     private var paragraphs: List<ParagraphData> = emptyList()
     private var config: TTSConfig = TTSConfig()
+    private var previewJob: Job? = null
     private var modelsDir: File = File(context.filesDir, "models")
     @Volatile
     private var activeEngine: TTSEngineType = TTSEngineType.SYSTEM
@@ -88,6 +91,32 @@ class TtsController(
         scope.launch {
             _state.collect { media.onAudioState(it) }
         }
+    }
+
+    fun previewInstalled(modelDir: File, speakerId: Int, onFinished: () -> Unit = {}) {
+        previewJob?.cancel()
+        neuralQueue.pause()
+        sink.stop()
+        previewJob = scope.launch {
+            try {
+                neural.speakerId = speakerId
+                neural.prepare(modelDir)
+                if (!isActive) return@launch
+                val buffer = neural.synthesize(0, "Esta es una muestra.", 1f)
+                if (!isActive) return@launch
+                sink.play(buffer) { _, _ -> }
+            } finally {
+                neural.speakerId = config.speakerId
+                onFinished()
+            }
+        }
+    }
+
+    fun cancelPreview() {
+        previewJob?.cancel()
+        previewJob = null
+        sink.stop()
+        neural.speakerId = config.speakerId
     }
 
     fun setTrackTitle(title: String) {

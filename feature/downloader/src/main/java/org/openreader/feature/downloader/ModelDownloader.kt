@@ -42,7 +42,22 @@ class ModelDownloader(
         return dir.exists() && dir.walkTopDown().any { it.isFile }
     }
 
+    fun importLocal(source: File, pack: VoicePack) {
+        reloadUserCatalog()
+        val targetDir = File(modelsDir, pack.id)
+        if (targetDir.exists()) targetDir.deleteRecursively()
+        targetDir.mkdirs()
+        val name = source.name.lowercase()
+        if (name.endsWith(".tar.bz2") || name.endsWith(".tbz2") || name.endsWith(".bz2")) {
+            ArchiveExtractor.extractTarBz2(source, targetDir)
+            normalizeLayout(targetDir, pack)
+        } else {
+            source.copyTo(File(targetDir, pack.onnxFileName), overwrite = true)
+        }
+    }
+
     suspend fun download(voiceId: String) = withContext(ioDispatcher) {
+        reloadUserCatalog()
         val pack = VoiceCatalog.byId(voiceId) ?: error("Voz desconocida: $voiceId")
         val targetDir = File(modelsDir, pack.id)
         val tempArchive = File(modelsDir, "${pack.id}.tar.bz2.part")
@@ -105,6 +120,11 @@ class ModelDownloader(
 
     fun close() {
         client.close()
+    }
+
+    private fun reloadUserCatalog() {
+        val files = modelsDir.parentFile ?: return
+        VoiceCatalog.setUserPacks(UserVoiceCatalog(files).load())
     }
 
     private fun sha256(file: File): String {

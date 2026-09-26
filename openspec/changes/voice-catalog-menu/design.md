@@ -10,17 +10,15 @@ En [DownloaderScreen.kt](https://github.com/neri-gut/Ereader/blob/feature/initRe
 
 ```
 Voces
-├── Fila "En uso" (una): nombre · locale · Neuronal|Sistema     [cambiar no hace falta; ya está marcada]
-├── Tab: Listas | Explorar
-├── Buscar (una línea)
-├── Segmento género: Todos · Mujer · Hombre · Varias   (oculto si la lista cabe en una pantalla)
-└── Contenido
-      Listas:    voz activa primero, luego neuronales instaladas, luego bloque "Sistema"
-      Explorar:  filas de idioma (Español 6, English 7, …)
-                 al entrar: tarjetas de ese locale
+├── Fila "En uso" (una): nombre de la voz activa. Al pulsarla abre su grupo.
+└── Un solo eje por pantalla
+      1. Tipo de fuente: Neuronal | Sistema
+      2. Idioma: Español, English, … (conteo). es-ES y es-MX comparten Español.
+      3. Género: Mujer | Hombre | Varias | Sin marcar, solo los que existen
+      4. Nombre y características: región, hablantes, Lista | Por descargar
 ```
 
-Se eliminan la tercera pestaña y el chip wall de idiomas. Sistema deja de ser un destino: es una sección al final de Listas, porque no se descarga.
+No hay buscador, ni tabs Listas | Explorar, ni chips al lado de las tarjetas. Si un eje tiene una sola opción, se salta. Atrás deshace el último eje elegido. Sistema es el primer corte, no una sección al final del catálogo neuronal.
 
 En tablet el contenido usa `widthIn(max = 48.rem)`, igual que Ajustes. Sin rail.
 
@@ -30,18 +28,20 @@ Una sola acción primaria, texto corto:
 
 | Estado | Primaria | Secundaria (icono) | Menú |
 |---|---|---|---|
-| No instalada | Descargar | Muestra, si hay URL | — |
-| Instalada, no activa | Usar | Muestra local | Eliminar, Detalle |
-| Activa | (sin botón Usar; badge "En uso") | Muestra local | Eliminar, Detalle |
+| No instalada | Descargar | Oír, si hay muestra. El icono pasa a detener mientras suena | — |
+| Instalada, una voz, no activa | Usar | Oír / Detener | Eliminar, Detalle |
+| Instalada, varias voces | Elegir | Oír abre el sheet; si ya suena, el icono es detener | Eliminar, Detalle |
+| Activa, una voz | badge "En uso" | Oír / Detener | Eliminar, Detalle |
 | Sistema | Usar / badge | — | — |
 
-Hablantes (`speakerCount > 1`): no se pintan en cada fila. Al pulsar Usar, un `ModalBottomSheet` lista los labels y confirma. Sharvard hoy fuerza un `Row` que desborda en compacto.
+Hablantes (`speakerCount > 1`): no se pintan en la fila. Elegir abre un sheet. Cada hablante tiene Oír (play/stop de esa voz) y Usar. El hablante activo dice "En uso".
 
 Muestra:
 
-- No instalada y el pack trae `sampleUrl`: el mp3 remoto actual.
+- El mismo control alterna reproducir y detener. Al terminar sola, vuelve a reproducir.
+- No instalada y el pack trae `sampleUrl`: el mp3 remoto de ese hablante.
 - Instalada: una frase fija sintetizada con el motor local ("Esta es una muestra."). Sin red.
-- Sistema: no hay muestra (Android TTS no expone un preview uniforme aquí).
+- Sistema: no hay muestra.
 
 Progreso de descarga: una barra en la tarjeta que se está bajando, no un bloque global encima del buscador. Error en la misma tarjeta.
 
@@ -87,12 +87,12 @@ No se acepta `archiveUrl` escrita a mano. Solo el host fijo de sherpa-onnx o un 
 
 ## Archivos
 
-- Reescribir la composición de `DownloaderScreen` (tabs, `LanguageIndex`, `VoiceCard`). No hace falta partir el ViewModel en dos features.
-- Extraer el filtro puro (`filterVoices`) a función testeable: query, locale, género. Hoy está inline en el composable.
+- Reescribir la composición de `DownloaderScreen` (`browseVoices`, `VoiceCard`). No hace falta partir el ViewModel en dos features.
+- El descenso (fuente, idioma, género, nombre) vive en `browseVoices`, testeable sin Compose.
 - `UserVoiceCatalog.load/save` en `Dispatchers.IO`.
 
 ## Riesgos
 
 - Un id Piper válido puede 404 en GitHub. El fallo queda en la tarjeta (`DownloadState.Failed`), sin diálogo bloqueante.
 - Un tar.bz2 local mal formado: el extractor actual ya falla; el pack no se marca instalado.
-- Catálogo de usuario grande: Explorar agrupa por idioma, no renderiza 200 tarjetas en la raíz.
+- Catálogo de usuario grande: la raíz solo muestra Neuronal y Sistema. Las tarjetas aparecen en la hoja de género.

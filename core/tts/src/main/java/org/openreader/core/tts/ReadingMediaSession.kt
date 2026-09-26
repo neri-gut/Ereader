@@ -217,7 +217,7 @@ class ReadingMediaSession(
 
     private companion object {
         const val CHANNEL_ID = "openreader_reading"
-        const val NOTIFICATION_ID = 42
+        const val NOTIFICATION_ID = 43
         const val MODE_IDLE = 0
         const val MODE_PLAYING = 1
         const val MODE_PAUSED = 2

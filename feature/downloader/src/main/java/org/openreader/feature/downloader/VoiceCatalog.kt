@@ -16,6 +16,7 @@ data class VoicePack(
     val speakerLabels: List<String> = emptyList()
 ) {
     fun sampleUrl(speaker: Int = 0): String {
+        if (!PiperVoiceId.matches(id)) return ""
         val qualityPart = id.substringAfterLast('-')
         val withoutQuality = id.removeSuffix("-$qualityPart")
         val locale = withoutQuality.substringBefore('-')
@@ -30,6 +31,18 @@ data class VoicePack(
 object VoiceCatalog {
     private const val BASE =
         "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models"
+
+    @Volatile
+    private var userPacks: List<VoicePack> = emptyList()
+
+    fun setUserPacks(packs: List<VoicePack>) {
+        userPacks = packs
+    }
+
+    fun all(): List<VoicePack> {
+        val overrides = userPacks.map { it.id }.toSet()
+        return userPacks + piperVoices.filter { it.id !in overrides }
+    }
 
     val piperVoices: List<VoicePack> = listOf(
         pack("es_AR-daniela-high", "Español AR (Daniela)", "es-AR", VoiceGender.FEMALE, "alta"),
@@ -59,7 +72,7 @@ object VoiceCatalog {
         pack("de_DE-thorsten-medium", "Deutsch (Thorsten)", "de-DE", VoiceGender.MALE, "media")
     )
 
-    fun byId(id: String): VoicePack? = piperVoices.find { it.id == id }
+    fun byId(id: String): VoicePack? = all().find { it.id == id }
 
     private fun pack(
         id: String,

@@ -17,7 +17,11 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
@@ -172,6 +176,13 @@ fun OpenReaderApp(
                             TextButton(onClick = { scope.launch { drawerState.open() } }) {
                                 Text("Menú")
                             }
+                        },
+                        actions = {
+                            if (tab == AppTab.VOICES) {
+                                IconButton(onClick = downloaderViewModel::openAddSheet) {
+                                    Icon(Icons.Filled.Add, contentDescription = "Añadir voz")
+                                }
+                            }
                         }
                     )
                 }
@@ -254,6 +265,7 @@ fun OpenReaderApp(
                                     speakerId = speaker
                                 )
                             )
+                            if (hasOpenDocument) tab = AppTab.READER
                         },
                         onDelete = { id ->
                             downloaderViewModel.delete(id)
@@ -268,6 +280,10 @@ fun OpenReaderApp(
                             }
                         },
                         onPreview = { id, speaker -> downloaderViewModel.preview(id, speaker) },
+                        onAddPiper = downloaderViewModel::addPiperVoice,
+                        onImportLocal = { uri -> downloaderViewModel.importLocal(context, uri, "") },
+                        onOpenAdd = downloaderViewModel::openAddSheet,
+                        onCloseAdd = downloaderViewModel::closeAddSheet,
                         modifier = contentModifier
                     )
                 }

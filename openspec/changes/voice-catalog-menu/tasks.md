@@ -2,9 +2,9 @@
 
 ## UI
 
-- [ ] Sustituir las 3 tabs por Listas | Explorar.
-- [ ] Quitar el `FlowRow` de idiomas. Explorar muestra una fila por locale con conteo.
-- [ ] Dejar género en un segmento de una sola línea; ocultarlo si hay 8 voces o menos.
+- [ ] Sustituir tabs y buscador por cuatro niveles: fuente, idioma, género, nombre.
+- [ ] Cada pantalla lista solo el eje siguiente. Un eje con una sola opción se omite.
+- [ ] La tarjeta muestra nombre y características (región, hablantes, Lista o Por descargar).
 - [ ] Mover `DownloadStatus` a la tarjeta en curso.
 - [ ] `VoiceCard`: una acción primaria, icono de muestra, menú Eliminar/Detalle.
 - [ ] Hablantes solo en un sheet al pulsar Usar, no en un `Row` permanente.
@@ -23,7 +23,7 @@
 
 ## Tests
 
-- [ ] Filtro: query + locale + género, voz activa primero.
+- [ ] Descenso: fuente, luego idioma, luego género; un solo género salta al nombre; la activa queda primera.
 - [ ] Parser: id `es_ES-mls_9972-low` → locale `es-ES` y URL esperada.
 - [ ] Rechazo: id con `..`, URL fuera de `github.com/k2-fsa/sherpa-onnx`, JSON vacío.
 
