@@ -1,10 +1,16 @@
 name: OpenReader CI
 
+# Solo develop. main no compila aquí: lo publica release.yml.
 on:
   push:
-    branches: [ "main", "develop" ]
-  pull_request:
-    branches: [ "main" ]
+    branches: [ "develop" ]
+
+concurrency:
+  group: ci-develop-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   build-and-test:
@@ -24,7 +30,8 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
         with:
-          packages: platforms;android-35 build-tools;35.0.0 platform-tools
+          # v3 pedía el paquete "tools", que Google ya no sirve.
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
 
       - name: Grant Execute Permission for Gradle
         run: chmod +x gradlew
