@@ -28,6 +28,7 @@ class SystemTtsEngine(
     private val appContext = context.applicationContext
     private val ready = CompletableDeferred<Boolean>()
     private val utteranceSeq = AtomicInteger(0)
+    private val session = AtomicInteger(0)
     @Volatile
     private var currentIndex: Int = 0
     @Volatile
@@ -49,6 +50,7 @@ class SystemTtsEngine(
     init {
         tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String?) {
+                if (!isCurrent(utteranceId)) return
                 val index = parseIndex(utteranceId) ?: currentIndex
                 currentIndex = index
                 onState(
@@ -61,16 +63,19 @@ class SystemTtsEngine(
             }
 
             override fun onDone(utteranceId: String?) {
+                if (!isCurrent(utteranceId)) return
                 val finished = parseIndex(utteranceId) ?: currentIndex
                 onParagraphFinished(finished)
             }
 
             @Deprecated("Deprecated in Java")
             override fun onError(utteranceId: String?) {
+                if (!isCurrent(utteranceId)) return
                 onState(AudioState.Error("Error en TTS del sistema"))
             }
 
             override fun onRangeStart(utteranceId: String?, start: Int, end: Int, frame: Int) {
+                if (!isCurrent(utteranceId)) return
                 val index = parseIndex(utteranceId) ?: currentIndex
                 onState(
                     AudioState.Playing(
@@ -118,6 +123,7 @@ class SystemTtsEngine(
         val start = startIndex.coerceIn(0, paragraphs.lastIndex)
         currentIndex = start
         currentText = paragraphs[start].text
+        session.incrementAndGet()
         tts.stop()
         speak(paragraphs[start].text, TextToSpeech.QUEUE_FLUSH, start)
         if (prefetchNext && start + 1 <= paragraphs.lastIndex) {
@@ -130,11 +136,13 @@ class SystemTtsEngine(
     }
 
     fun pause() {
+        session.incrementAndGet()
         tts.stop()
         onState(AudioState.Paused(currentIndex))
     }
 
     fun stop() {
+        session.incrementAndGet()
         tts.stop()
         onState(AudioState.Idle)
     }
@@ -149,14 +157,21 @@ class SystemTtsEngine(
     }
 
     private fun speak(text: String, queueMode: Int, index: Int) {
-        val id = "p-$index-${utteranceSeq.incrementAndGet()}"
+        val id = "p-$index-${session.get()}-${utteranceSeq.incrementAndGet()}"
         val params = Bundle()
         tts.speak(text, queueMode, params, id)
     }
 
     private fun parseIndex(utteranceId: String?): Int? {
-        if (utteranceId == null || !utteranceId.startsWith("p-")) return null
-        return utteranceId.substringAfter("p-").substringBefore("-").toIntOrNull()
+        val parts = utteranceId?.split('-') ?: return null
+        if (parts.size < 2 || parts[0] != "p") return null
+        return parts[1].toIntOrNull()
+    }
+
+    private fun isCurrent(utteranceId: String?): Boolean {
+        val parts = utteranceId?.split('-') ?: return false
+        val active = parts.getOrNull(2)?.toIntOrNull() ?: return false
+        return active == session.get()
     }
 
     suspend fun awaitReadyOrThrow() {

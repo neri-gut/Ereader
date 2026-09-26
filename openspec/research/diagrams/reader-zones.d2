@@ -2,7 +2,7 @@ direction: down
 
 pantalla: Pantalla lectora {
   shape: rectangle
-  top: Zona overlay superior\n48dp + status inset {
+  overlay: "Zona overlay superior\n48dp + status inset" {
     style.fill: "#E3F2FD"
   }
   muerto_izq: Padding izquierdo\nzona muerta {
@@ -17,13 +17,13 @@ pantalla: Pantalla lectora {
   entre: Espacio entre párrafos\nzona muerta {
     style.fill: "#FFF8E1"
   }
-  bottom: Transport TTS\nsolo con cromo {
+  transport: "Transport TTS\nsolo con cromo" {
     style.fill: "#E3F2FD"
   }
 }
 
-pantalla.top -> pantalla.texto
+pantalla.overlay -> pantalla.texto
 pantalla.muerto_izq -> pantalla.texto
 pantalla.texto -> pantalla.muerto_der
 pantalla.texto -> pantalla.entre
-pantalla.entre -> pantalla.bottom
+pantalla.entre -> pantalla.transport

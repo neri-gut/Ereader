@@ -1,19 +1,31 @@
 package org.openreader.feature.reader
 
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import org.openreader.core.model.AudioState
 import org.openreader.core.model.TTSConfig
 import org.openreader.core.model.TTSEngineType
@@ -23,7 +35,7 @@ fun TtsControls(
     audioState: AudioState,
     config: TTSConfig,
     voiceLabel: String,
-    paragraphIndex: Int,
+    palette: ThemeColors,
     onPlay: () -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
@@ -35,50 +47,81 @@ fun TtsControls(
 ) {
     val playing = audioState is AudioState.Playing || audioState is AudioState.Synthesizing
     val paused = audioState is AudioState.Paused
+    var rateOpen by remember { mutableStateOf(false) }
+    val tint = palette.text
     val engineName = when (config.engineType) {
         TTSEngineType.SYSTEM -> "Sistema"
         TTSEngineType.SHERPA_ONNX_PIPER -> "Neuronal"
     }
-    Column(modifier = modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) {
-        Text(
-            text = buildString {
-                append("$engineName · $voiceLabel")
-                if (config.engineType == TTSEngineType.SHERPA_ONNX_PIPER && config.speakerId > 0) {
-                    append(" · hablante ${config.speakerId + 1}")
-                }
-            },
-            style = MaterialTheme.typography.labelLarge
-        )
-        Text(
-            text = "Párrafo ${paragraphIndex + 1} (toca un párrafo para empezar ahí)",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(palette.background.copy(alpha = 0.94f))
+            .navigationBarsPadding()
+            .padding(horizontal = 4.dp, vertical = 2.dp)
+    ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            TextButton(onClick = onPrevious) { Text("Anterior") }
-            when {
-                playing -> FilledTonalButton(onClick = onPause) { Text("Pausa") }
-                paused -> FilledTonalButton(onClick = onResume) { Text("Continuar") }
-                else -> FilledTonalButton(onClick = onPlay) { Text("Leer") }
+            IconButton(onClick = onPrevious) {
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Anterior", tint = tint)
             }
-            TextButton(onClick = onNext) { Text("Siguiente") }
+            IconButton(
+                onClick = {
+                    when {
+                        playing -> onPause()
+                        paused -> onResume()
+                        else -> onPlay()
+                    }
+                },
+                modifier = Modifier.semantics {
+                    contentDescription = if (playing) "Pausa" else "Leer"
+                }
+            ) {
+                if (playing) {
+                    Text("II", color = tint, fontSize = 16.sp)
+                } else {
+                    Icon(Icons.Filled.PlayArrow, contentDescription = "Leer", tint = tint)
+                }
+            }
+            IconButton(onClick = onNext) {
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Siguiente", tint = tint)
+            }
+            Text(
+                text = "$engineName · $voiceLabel",
+                color = tint,
+                fontSize = 14.sp,
+                maxLines = 1,
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable(onClick = onOpenVoices)
+                    .padding(horizontal = 4.dp)
+            )
+            Text(
+                text = "${"%.1f".format(config.speechRate)}×",
+                color = tint,
+                fontSize = 14.sp,
+                modifier = Modifier
+                    .clickable { rateOpen = !rateOpen }
+                    .padding(horizontal = 12.dp, vertical = 12.dp)
+            )
         }
-        Text("Velocidad ${"%.1f".format(config.speechRate)}×")
-        Slider(
-            value = config.speechRate,
-            onValueChange = onRateChange,
-            valueRange = TTSConfig.MIN_SPEECH_RATE..TTSConfig.MAX_SPEECH_RATE
-        )
-        TextButton(onClick = onOpenVoices) { Text("Cambiar o descargar voces") }
-        if (audioState is AudioState.Synthesizing) {
-            Text("Preparando párrafo ${audioState.paragraphIndex + 1}…")
+        if (rateOpen) {
+            Slider(
+                value = config.speechRate,
+                onValueChange = onRateChange,
+                valueRange = TTSConfig.MIN_SPEECH_RATE..TTSConfig.MAX_SPEECH_RATE,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
         }
         if (audioState is AudioState.Error) {
-            Text(audioState.message, color = MaterialTheme.colorScheme.error)
+            Text(
+                audioState.message,
+                color = tint,
+                fontSize = 13.sp,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+            )
         }
     }
 }

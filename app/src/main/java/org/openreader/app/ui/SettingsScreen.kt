@@ -4,10 +4,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -16,8 +18,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import org.openreader.feature.reader.rem
 import org.openreader.core.model.FontFamilyType
 import org.openreader.core.model.ReaderTheme
 import org.openreader.core.model.TTSConfig
@@ -29,14 +33,16 @@ fun SettingsScreen(
     theme: ReaderTheme,
     ttsConfig: TTSConfig,
     neuralReady: Boolean,
+    expanded: Boolean = false,
     onThemeChange: (ReaderTheme) -> Unit,
     onTtsChange: (TTSConfig) -> Unit,
     onOpenVoices: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    Box(modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
     Column(
-        modifier
-            .fillMaxSize()
+        Modifier
+            .then(if (expanded) Modifier.widthIn(max = 48.rem) else Modifier.fillMaxWidth())
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp, vertical = 8.dp)
     ) {
@@ -146,6 +152,7 @@ fun SettingsScreen(
         Spacer(Modifier.height(8.dp))
         Text("Versión 1.0.0 · Licencia MIT")
         Spacer(Modifier.height(24.dp))
+    }
     }
 }
 

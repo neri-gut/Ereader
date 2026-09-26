@@ -56,7 +56,7 @@ class TtsQueueManager(
                     for (index in start until items.size) {
                         val paragraph = items[index]
                         if (paragraph.text.isBlank()) continue
-                        _state.value = AudioState.Synthesizing(index)
+                        if (!paused) _state.value = AudioState.Synthesizing(index)
                         val buffer = synthesizer.synthesize(index, paragraph.text, speechRate)
                         channel.send(buffer)
                     }
@@ -77,6 +77,7 @@ class TtsQueueManager(
                         endCharOffset = 0
                     )
                     sink.play(buffer) { startChar, endChar ->
+                        if (paused) return@play
                         _state.value = AudioState.Playing(
                             paragraphIndex = buffer.paragraphIndex,
                             startCharOffset = startChar,

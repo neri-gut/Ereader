@@ -9,6 +9,7 @@ import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
@@ -31,6 +32,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,6 +60,9 @@ fun PdfNativePreview(
     uri: Uri,
     localPath: String?,
     pageMode: PdfPageMode,
+    showChrome: Boolean = false,
+    onToggleChrome: () -> Unit = {},
+    onUserScroll: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var pageCount by remember(localPath) { mutableIntStateOf(0) }
@@ -118,14 +123,19 @@ fun PdfNativePreview(
                 session = session,
                 pageCount = pageCount,
                 viewWidth = viewWidth,
-                aspect = aspect
+                aspect = aspect,
+                showChrome = showChrome,
+                onToggleChrome = onToggleChrome,
+                onUserScroll = onUserScroll
             )
             else -> PagedPages(
                 session = session,
                 pageCount = pageCount,
                 viewWidth = viewWidth,
                 aspect = aspect,
-                chrome = true
+                chrome = showChrome,
+                onToggleChrome = onToggleChrome,
+                onUserScroll = onUserScroll
             )
         }
         LaunchedEffect(session) {
@@ -140,12 +150,20 @@ private fun ContinuousPages(
     session: PdfRenderSession?,
     pageCount: Int,
     viewWidth: Int,
-    aspect: Float
+    aspect: Float,
+    showChrome: Boolean,
+    onToggleChrome: () -> Unit,
+    onUserScroll: () -> Unit
 ) {
     val listState = rememberLazyListState()
     val pages = remember(pageCount) { (0 until pageCount).toList() }
     val visiblePage by remember {
         derivedStateOf { listState.firstVisibleItemIndex + 1 }
+    }
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.isScrollInProgress }.collect { scrolling ->
+            if (scrolling) onUserScroll()
+        }
     }
     Box(Modifier.fillMaxSize()) {
         LazyColumn(
@@ -162,10 +180,11 @@ private fun ContinuousPages(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 8.dp)
+                        .clickable(onClick = onToggleChrome)
                 )
             }
         }
-        Text(
+        if (showChrome) Text(
             "$visiblePage / $pageCount",
             color = Color.White.copy(alpha = 0.85f),
             fontSize = 12.sp,
@@ -186,10 +205,22 @@ private fun PagedPages(
     pageCount: Int,
     viewWidth: Int,
     aspect: Float,
-    chrome: Boolean
+    chrome: Boolean,
+    onToggleChrome: () -> Unit,
+    onUserScroll: () -> Unit
 ) {
     val pagerState = rememberPagerState(pageCount = { pageCount })
-    Box(Modifier.fillMaxSize()) {
+    LaunchedEffect(pagerState) {
+        var first = true
+        snapshotFlow { pagerState.currentPage }.collect {
+            if (first) {
+                first = false
+            } else {
+                onUserScroll()
+            }
+        }
+    }
+    Box(Modifier.fillMaxSize().clickable(onClick = onToggleChrome)) {
         HorizontalPager(
             state = pagerState,
             modifier = Modifier.fillMaxSize()
@@ -200,7 +231,9 @@ private fun PagedPages(
                     pageIndex = page,
                     viewWidth = viewWidth,
                     aspect = aspect,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onToggleChrome)
                 )
             }
         }

@@ -42,6 +42,7 @@ data class ReaderUiState(
     val error: String? = null,
     val showNativePdf: Boolean = false,
     val showTtsBar: Boolean = false,
+    val chromeVisible: Boolean = false,
     val localPdfPath: String? = null,
     val extractPage: Int = 0,
     val extractTotal: Int = 0,
@@ -68,6 +69,9 @@ class ReaderViewModel(
         viewModelScope, SharingStarted.WhileSubscribed(5_000), TTSConfig()
     )
     val audioState: StateFlow<AudioState> = ttsController.state
+    val screenBrightness: StateFlow<Float> = preferencesRepository.screenBrightness.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5_000), -1f
+    )
     private var openJob: Job? = null
     private var activeUri: String? = null
 
@@ -122,7 +126,8 @@ class ReaderViewModel(
                     error = null,
                     fileName = fileName,
                     contentUri = uriKey,
-                    showNativePdf = true,
+                    showNativePdf = false,
+                    chromeVisible = true,
                     paragraphs = if (switching) emptyList() else it.paragraphs,
                     localPdfPath = if (switching) null else it.localPdfPath,
                     extractPage = if (switching) 0 else it.extractPage,
@@ -201,7 +206,7 @@ class ReaderViewModel(
                 _uiState.update {
                     it.copy(
                         loading = false,
-                        showNativePdf = true,
+                        chromeVisible = true,
                         error = error.message ?: "Error al extraer el texto. Puedes usar la vista PDF nativa."
                     )
                 }
@@ -310,8 +315,31 @@ class ReaderViewModel(
         }
     }
 
+    fun toggleChrome() {
+        _uiState.update { it.copy(chromeVisible = !it.chromeVisible) }
+    }
+
+    fun showChrome() {
+        _uiState.update { it.copy(chromeVisible = true) }
+    }
+
+    fun updateBrightness(value: Float) {
+        viewModelScope.launch(Dispatchers.IO) {
+            preferencesRepository.saveScreenBrightness(value)
+        }
+    }
+
+    fun jumpToPage(page: Int) {
+        val index = _uiState.value.paragraphs.indexOfFirst { it.pageNumber >= page }
+        if (index >= 0) selectParagraph(index)
+    }
+
+    fun hideChrome() {
+        _uiState.update { it.copy(chromeVisible = false) }
+    }
+
     fun toggleTtsBar() {
-        _uiState.update { it.copy(showTtsBar = !it.showTtsBar) }
+        _uiState.update { it.copy(showTtsBar = !it.showTtsBar, chromeVisible = true) }
     }
 
     fun toggleNativePdf() {
@@ -332,8 +360,7 @@ class ReaderViewModel(
         persistProgress(index, 0)
         when (ttsController.state.value) {
             is AudioState.Playing,
-            is AudioState.Paused,
-            is AudioState.Synthesizing -> ttsController.play(index)
+            is AudioState.Synthesizing -> ttsController.pause()
             else -> Unit
         }
     }
@@ -357,6 +384,7 @@ class ReaderViewModel(
         _uiState.update {
             it.copy(
                 showTtsBar = true,
+                chromeVisible = true,
                 showNativePdf = false,
                 error = if (neuralMissing) "NEEDS_VOICE" else null
             )

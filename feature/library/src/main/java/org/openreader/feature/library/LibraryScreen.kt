@@ -25,7 +25,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -114,18 +117,14 @@ fun LibraryScreen(
                     modifier = Modifier.padding(start = 20.dp, top = 16.dp, end = 20.dp)
                 )
             }
-            Text(
-                text = if (documents.isEmpty()) "Añade PDFs para empezar" else "${documents.size} documentos",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 20.dp, top = 8.dp, bottom = 8.dp)
-            )
-            Text(
-                "Usa + para añadir PDFs. Si el sistema no deja elegir una carpeta, selecciona los archivos uno a uno o varios a la vez.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 8.dp)
-            )
+            if (documents.isNotEmpty()) {
+                Text(
+                    text = "${documents.size} documentos",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 20.dp, top = 8.dp, bottom = 8.dp)
+                )
+            }
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
@@ -160,7 +159,7 @@ fun LibraryScreen(
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
                         if (documents.isEmpty()) {
-                            "Pulsa + para añadir un PDF o varios a la vez."
+                            "Tu biblioteca está vacía.\nPulsa + para añadir un PDF."
                         } else {
                             "Nada coincide con este filtro."
                         },
@@ -216,7 +215,7 @@ fun LibraryScreen(
                 )
             }
             FloatingActionButton(onClick = { addMenu = true }) {
-                Text("+", fontSize = 24.sp)
+                Icon(Icons.Filled.Add, contentDescription = "Añadir PDF")
             }
         }
     }

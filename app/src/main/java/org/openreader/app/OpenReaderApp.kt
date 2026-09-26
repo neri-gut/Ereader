@@ -1,14 +1,23 @@
 package org.openreader.app
 
+import android.app.Activity
 import android.net.Uri
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -28,6 +37,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 import org.openreader.app.ui.SettingsScreen
 import org.openreader.core.model.TTSEngineType
+import org.openreader.core.model.ThemeType
 import org.openreader.feature.downloader.DownloaderScreen
 import org.openreader.feature.downloader.DownloaderViewModel
 import org.openreader.feature.library.LibraryScreen
@@ -59,6 +69,30 @@ fun OpenReaderApp(
     val documents by libraryViewModel.documents.collectAsStateWithLifecycle()
     val theme by readerViewModel.theme.collectAsStateWithLifecycle()
     val ttsConfig by readerViewModel.ttsConfig.collectAsStateWithLifecycle()
+    val readerState by readerViewModel.uiState.collectAsStateWithLifecycle()
+    val screenBrightness by readerViewModel.screenBrightness.collectAsStateWithLifecycle()
+    val view = LocalView.current
+    val immersive = tab == AppTab.READER && !readerState.chromeVisible
+    DisposableEffect(immersive, tab, theme.type) {
+        val window = (view.context as Activity).window
+        val controller = WindowCompat.getInsetsController(window, view)
+        if (immersive) {
+            controller.hide(WindowInsetsCompat.Type.systemBars())
+            controller.systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        } else {
+            controller.show(WindowInsetsCompat.Type.systemBars())
+        }
+        val lightBars = tab != AppTab.READER || theme.type != ThemeType.NIGHT
+        controller.isAppearanceLightStatusBars = lightBars
+        controller.isAppearanceLightNavigationBars = lightBars
+        onDispose {
+            controller.show(WindowInsetsCompat.Type.systemBars())
+        }
+    }
+    BackHandler(enabled = tab == AppTab.READER && !readerState.chromeVisible) {
+        tab = AppTab.LIBRARY
+    }
 
     fun goTo(destination: AppTab) {
         tab = destination
@@ -67,7 +101,7 @@ fun OpenReaderApp(
 
     ModalNavigationDrawer(
         drawerState = drawerState,
-        gesturesEnabled = tab != AppTab.READER || drawerState.isOpen,
+        gesturesEnabled = tab != AppTab.READER || readerState.chromeVisible || drawerState.isOpen,
         drawerContent = {
             ModalDrawerSheet {
                 Text(
@@ -99,6 +133,11 @@ fun OpenReaderApp(
     ) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
+            contentWindowInsets = if (tab == AppTab.READER) {
+                WindowInsets(0, 0, 0, 0)
+            } else {
+                ScaffoldDefaults.contentWindowInsets
+            },
             topBar = {
                 if (tab != AppTab.READER) {
                     TopAppBar(
@@ -121,9 +160,11 @@ fun OpenReaderApp(
                 }
             }
         ) { padding ->
-            val contentModifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
+            val contentModifier = if (tab == AppTab.READER) {
+                Modifier.fillMaxSize()
+            } else {
+                Modifier.fillMaxSize().padding(padding)
+            }
             when (tab) {
                 AppTab.LIBRARY -> LibraryScreen(
                     documents = documents,
@@ -149,7 +190,6 @@ fun OpenReaderApp(
                     modifier = contentModifier
                 )
                 AppTab.READER -> {
-                    val readerState by readerViewModel.uiState.collectAsStateWithLifecycle()
                     val audio by readerViewModel.audioState.collectAsStateWithLifecycle()
                     ReaderScreen(
                         state = readerState,
@@ -157,12 +197,12 @@ fun OpenReaderApp(
                         ttsConfig = ttsConfig,
                         audioState = audio,
                         widthSizeClass = widthSizeClass,
-                        neuralReady = readerViewModel.availableNeuralVoices().isNotEmpty(),
                         voiceLabel = readerViewModel.voiceLabel(),
                         onOpenMenu = { scope.launch { drawerState.open() } },
                         onToggleNative = readerViewModel::toggleNativePdf,
                         onPdfPageMode = readerViewModel::setPdfPageMode,
                         onTtsChange = readerViewModel::updateTts,
+                        onThemeChange = readerViewModel::updateTheme,
                         onPlay = readerViewModel::play,
                         onPause = readerViewModel::pause,
                         onResume = readerViewModel::resume,
@@ -170,6 +210,11 @@ fun OpenReaderApp(
                         onNext = readerViewModel::skipNext,
                         onOpenVoices = { goTo(AppTab.VOICES) },
                         onToggleTtsBar = readerViewModel::toggleTtsBar,
+                        screenBrightness = screenBrightness,
+                        onBrightnessChange = readerViewModel::updateBrightness,
+                        onToggleChrome = readerViewModel::toggleChrome,
+                        onShowChrome = readerViewModel::showChrome,
+                        onHideChrome = readerViewModel::hideChrome,
                         onSelectParagraph = readerViewModel::selectParagraph,
                         modifier = contentModifier
                     )
@@ -210,6 +255,7 @@ fun OpenReaderApp(
                     theme = theme,
                     ttsConfig = ttsConfig,
                     neuralReady = readerViewModel.availableNeuralVoices().isNotEmpty(),
+                    expanded = widthSizeClass == WindowWidthSizeClass.Expanded,
                     onThemeChange = readerViewModel::updateTheme,
                     onTtsChange = readerViewModel::updateTts,
                     onOpenVoices = { goTo(AppTab.VOICES) },

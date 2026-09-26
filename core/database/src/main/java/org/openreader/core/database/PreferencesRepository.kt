@@ -50,6 +50,11 @@ class PreferencesRepository(
         )
     }
 
+    val screenBrightness: Flow<Float> = dataStore.data.map { prefs ->
+        val stored = prefs[KEY_BRIGHTNESS] ?: SYSTEM_BRIGHTNESS
+        if (stored < 0f) SYSTEM_BRIGHTNESS else stored.coerceIn(MIN_BRIGHTNESS, 1f)
+    }
+
     val ttsConfig: Flow<TTSConfig> = dataStore.data.map { prefs ->
         TTSConfig(
             selectedVoiceId = prefs[KEY_VOICE_ID] ?: TTSConfig.SYSTEM_VOICE_ID,
@@ -62,6 +67,12 @@ class PreferencesRepository(
             pitch = prefs[KEY_PITCH] ?: 1.0f,
             speakerId = prefs[KEY_SPEAKER_ID] ?: 0
         )
+    }
+
+    suspend fun saveScreenBrightness(value: Float) = withContext(ioDispatcher) {
+        dataStore.edit { prefs ->
+            prefs[KEY_BRIGHTNESS] = value.coerceIn(MIN_BRIGHTNESS, 1f)
+        }
     }
 
     suspend fun saveTheme(theme: ReaderTheme) = withContext(ioDispatcher) {
@@ -107,5 +118,8 @@ class PreferencesRepository(
         val KEY_SPEECH_RATE = floatPreferencesKey("speech_rate")
         val KEY_PITCH = floatPreferencesKey("pitch")
         val KEY_SPEAKER_ID = intPreferencesKey("speaker_id")
+        val KEY_BRIGHTNESS = floatPreferencesKey("screen_brightness")
+        const val SYSTEM_BRIGHTNESS = -1f
+        const val MIN_BRIGHTNESS = 0.05f
     }
 }
