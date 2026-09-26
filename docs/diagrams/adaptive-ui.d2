@@ -1,0 +1,23 @@
+direction: right
+
+compact: "POCO F7 Compact < 600dp" {
+  menu: Menú en drawer, cerrado al leer
+  barra: Una fila: Menú, título, Vista
+  texto: Texto al 100% del ancho
+  pdf: PDF nativo a pantalla completa
+  audio: Barra de audio bajo el texto
+}
+
+expanded: "MatePad 12 X Expanded >= 840dp" {
+  menu: El mismo drawer, sin rail fijo
+  texto: "Columna centrada 42rem–48rem"
+  pdf: PDF nativo a pantalla completa
+  audio: Barra de audio bajo el texto
+}
+
+user: Lector {
+  shape: person
+}
+
+user -> compact: Teléfono
+user -> expanded: Tablet

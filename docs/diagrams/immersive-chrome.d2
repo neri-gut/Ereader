@@ -1,0 +1,37 @@
+direction: down
+
+estados: Estados del lector {
+  inmersivo: Inmersivo (default) {
+    pagina: Columna de texto 100%
+    tts: Resaltado de caracteres
+    linea: Hairline 2dp si Playing
+  }
+  cromo: Cromo visible {
+    overlay: "Overlay: menú, título, PDF, página, audio"
+    texto: Misma columna
+    transport: Prev · Play · Next · velocidad
+  }
+  sheet: Sheet de lectura {
+    preview: Texto visible arriba
+    controles: Tema · fuente · tamaño · interlineado · ancho
+  }
+  pdf: Verificación PDF {
+    preview: PdfRenderer a pantalla completa
+    volver: Acción Texto
+  }
+}
+
+gestos: Gestos {
+  tap_muerto: Tap zona muerta
+  tap_parrafo: Tap cuerpo del párrafo
+  scroll: Scroll
+  borde: Borde izquierdo
+}
+
+gestos.tap_muerto -> estados.inmersivo: oculta
+gestos.tap_muerto -> estados.cromo: muestra
+gestos.tap_parrafo -> estados.inmersivo: selecciona origen TTS
+gestos.scroll -> estados.inmersivo: oculta cromo
+estados.cromo -> estados.sheet: icono Página
+estados.cromo -> estados.pdf: icono PDF
+estados.pdf -> estados.cromo: acción Texto

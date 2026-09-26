@@ -1,0 +1,33 @@
+{
+  "name": "OpenReader Dev Environment",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "java.configuration.runtimes": [
+          {
+            "name": "JavaSE-17",
+            "path": "/usr/local/sdkman/candidates/java/current",
+            "default": true
+          }
+        ]
+      },
+      "extensions": [
+        "fwcd.kotlin",
+        "mathiasfrohlich.Kotlin",
+        "vscjava.vscode-java-pack",
+        "terrastruct.d2",
+        "eamodio.gitlens"
+      ]
+    }
+  },
+  "remoteUser": "vscode",
+  "mounts": [
+    "source=/dev/bus/usb,target=/dev/bus/usb,type=bind"
+  ],
+  "runArgs": [
+    "--privileged"
+  ]
+}

@@ -1,0 +1,18 @@
+direction: right
+
+usuario: Lector {
+  shape: person
+}
+
+libro: ReaderScreen
+sheet: ThemeSettingsPanel\nen ModalBottomSheet
+ajustes: SettingsScreen
+prefs: DataStore ReaderTheme
+
+usuario -> libro: lee
+usuario -> sheet: icono Página
+sheet -> prefs: updateTheme
+usuario -> ajustes: drawer (opcional)
+ajustes -> prefs: updateTheme
+prefs -> libro: collect theme
+prefs -> ajustes: collect theme

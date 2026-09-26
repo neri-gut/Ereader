@@ -1,0 +1,25 @@
+direction: down
+
+pantalla: Pantalla lectora {
+  shape: rectangle
+  overlay: "Barra superior y deslizador de página\nvisibles al abrir y al bajar el dedo"
+  atras: "Dedo hacia abajo\ntexto hacia el inicio\nabre el menú" {
+    style.fill: "#E8F5E9"
+  }
+  lectura: "Dedo hacia arriba\nseguir leyendo\nno abre ni cierra el menú"
+  izquierda: "Franja izquierda 48dp\ntoque alterna el menú" {
+    style.fill: "#FFF8E1"
+  }
+  derecha: "Lateral derecho 48dp\nbrillo, solo con menú" {
+    style.fill: "#E3F2FD"
+  }
+  inferior: "Franja inferior 96dp\nvelocidad, solo con menú" {
+    style.fill: "#E3F2FD"
+  }
+}
+
+pantalla.atras -> pantalla.overlay
+pantalla.lectura -> pantalla.atras: no toca el menú
+pantalla.izquierda -> pantalla.overlay
+pantalla.overlay -> pantalla.derecha
+pantalla.overlay -> pantalla.inferior
