@@ -1,0 +1,49 @@
+direction: down
+
+ui: Interfaz Compose {
+  compact: "POCO F7 (compacto)\nMenú en drawer, texto a ancho completo"
+  expanded: "MatePad 12 X (expandido)\nMisma navegación, columna 42rem–48rem"
+  destinations: "Biblioteca · Lector · Voces · Ajustes"
+}
+
+lector: Lector {
+  native: "PdfRenderer nativo (ARGB_8888)"
+  texto: "Párrafos continuos"
+  audio: "Barra de audio"
+}
+
+nucleo: Núcleo {
+  extractor: "PdfTextExtractor\nuna pasada por página"
+  normalizer: "ParagraphNormalizer\nDispatchers.Default"
+  parrafos: "Caché de párrafos\nfilesDir/extracts/{hash}"
+  room: "Room\nprogreso y favoritos"
+  prefs: "DataStore\ntema y voz"
+  sistema: "TTS del sistema"
+  sherpa: "Sherpa-ONNX Piper"
+  cola: "Cola N+1\nChannel capacidad 2"
+}
+
+disco: Disco local {
+  saf: "SAF OpenDocument"
+  copia: "cache/docs/doc-*.pdf"
+  modelos: "filesDir/models"
+}
+
+servicio: Fuera del ViewModel {
+  descarga: "ModelDownloadService\nforeground dataSync"
+  limite: "Extracción y audio viven en el proceso.\nSi Android mata la app, se pierden."
+}
+
+ui.destinations -> lector
+lector.native -> disco.copia: "visible al terminar la copia"
+disco.saf -> disco.copia
+disco.copia -> nucleo.extractor: "solo si no hay caché"
+nucleo.extractor -> nucleo.normalizer
+nucleo.normalizer -> nucleo.parrafos
+nucleo.parrafos -> lector.texto
+nucleo.room -> ui.destinations: "progreso"
+nucleo.sistema -> lector.audio
+nucleo.sherpa -> nucleo.cola
+nucleo.cola -> lector.audio
+servicio.descarga -> disco.modelos
+disco.modelos -> nucleo.sherpa

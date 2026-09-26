@@ -1,0 +1,34 @@
+direction: down
+
+voces: Voces {
+  en_uso: "Fila En uso"
+  fuente: "Neuronal | Sistema"
+}
+
+idioma: Idioma
+genero: "Mujer | Hombre | Varias"
+nombre: "Nombre y características"
+
+tarjeta: Tarjeta {
+  primaria: "Descargar | Usar | badge En uso"
+  muestra: Icono muestra
+  menu: "Menú: Eliminar · Detalle"
+  sheet: "Sheet de hablantes\nsolo si speakerCount > 1"
+}
+
+anadir: Añadir {
+  piper: "Id Piper\nURL sherpa-onnx fija"
+  local: "SAF\n.tar.bz2 o .onnx"
+  json: "files/user-voices.json"
+}
+
+voces.fuente -> idioma: más de un idioma
+voces.fuente -> genero: un solo idioma
+idioma -> genero: más de un género
+idioma -> nombre: un solo género
+genero -> nombre
+nombre -> tarjeta
+tarjeta.primaria -> tarjeta.sheet: multi-speaker
+anadir.piper -> json
+anadir.local -> json
+json -> voces.fuente: se suma al catálogo

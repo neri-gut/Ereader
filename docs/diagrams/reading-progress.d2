@@ -1,0 +1,17 @@
+direction: down
+
+open: Abrir PDF (SAF URI)
+hash: SHA-256 de los primeros 8MB
+room: Room reading_progress
+extract: PdfBox página a página (Flow)
+ui: LazyColumn de ParagraphData
+tts: TTS (Sistema o Sherpa-ONNX)
+save: Upsert párrafo + char_offset
+
+open -> hash
+hash -> room: recuperar progreso
+open -> extract
+extract -> ui
+ui -> tts: Play en párrafo N
+tts -> save: al cambiar de párrafo o pausar
+save -> room

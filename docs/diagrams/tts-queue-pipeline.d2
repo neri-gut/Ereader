@@ -1,0 +1,44 @@
+direction: right
+
+user_action: Usuario presiona Play {
+  shape: person
+}
+
+subgraph ui: Capa UI (Jetpack Compose) {
+  reader_screen: ReaderScreen {
+    style.fill: "#E3F2FD"
+  }
+  highlight: Resaltador de Texto
+}
+
+subgraph core_tts: Motor TTS Local (Core) {
+  queue_manager: TTSQueueManager {
+    shape: class
+  }
+  channel: Channel<AudioBuffer>(cap=2) {
+    shape: queue
+  }
+  sherpa_onnx: Sherpa-ONNX Engine {
+    shape: hexagon
+    style.fill: "#FFF3E0"
+  }
+}
+
+subgraph audio: Reproducción Audio {
+  audio_track: AudioTrack (PCM Stream) {
+    shape: cylinder
+  }
+}
+
+user_action -> reader_screen: Evento Play
+reader_screen -> queue_manager: Enviar Párrafo N y N+1
+
+queue_manager -> sherpa_onnx: 1. Sintetizar Párrafo N (Sync)
+sherpa_onnx -> channel: Push PCM N
+channel -> audio_track: Stream PCM N a Altavoz
+
+queue_manager -> sherpa_onnx: 2. Sintetizar Párrafo N+1 en Bg Coroutine
+sherpa_onnx -> channel: Push PCM N+1 (Buffer preparado)
+
+audio_track -> highlight: Progreso de reproducción (Char Offset)
+highlight -> reader_screen: Actualizar UI

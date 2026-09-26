@@ -1,0 +1,58 @@
+direction: right
+
+abrir: Abrir URI SAF {
+  shape: person
+}
+
+copia: Copiar a cache/docs {
+  shape: package
+}
+
+pdf: Mostrar PDF nativo {
+  style.fill: "#E3F2FD"
+}
+
+hash: SHA-256\nprimeros 8MB + tamaño
+
+decision: ¿Hay checkpoint\nv2? {
+  shape: diamond
+}
+
+listo: ¿Terminó\n(done=1)? {
+  shape: diamond
+}
+
+cargar: Cargar párrafos\ny saltar a nextPage
+
+extraer: PdfBox desde nextPage {
+  shape: rectangle
+}
+
+muestra: Guardar texto\nde las primeras 12 páginas
+
+encabezados: Detectar encabezados\ncon ese texto ya leído
+
+resto: Resto de páginas\nsin releer la muestra
+
+normalizar: Normalizar\nDispatchers.Default
+
+publicar: Publicar párrafos\ncada 24
+
+guardar: Checkpoint cada 4 páginas\ny al cancelar\nnextPage + carry + done
+
+texto: Vista texto y TTS\ndesde el párrafo guardado
+
+fallo: PDF sigue usable\nsi la extracción falla {
+  style.fill: "#FFF3E0"
+}
+
+abrir -> copia -> pdf
+copia -> hash -> decision
+decision -> cargar: sí
+decision -> extraer: no
+cargar -> listo
+listo -> texto: sí
+listo -> extraer: no, sigue en nextPage
+extraer -> muestra -> encabezados -> resto -> normalizar -> publicar -> guardar
+guardar -> texto
+extraer -> fallo: error u OOM de una página
