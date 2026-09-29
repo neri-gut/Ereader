@@ -9,11 +9,12 @@ proceso: Corrutinas del proceso {
   io: "Dispatchers.IO\ncopia del PDF, hash, portadas, Room, DataStore"
   cpu: "Dispatchers.Default\nnormalizar párrafos y sintetizar Piper"
   vm: "ReaderViewModel\nla extracción se cancela al abrir otro PDF"
-  audio: "TtsController\nMediaSession y foco de audio\nse detiene si el proceso muere"
+  audio: "TtsController\nMediaSession y foco de audio"
 }
 
 servicio: Servicio en primer plano {
   download: "ModelDownloadService\ntipo dataSync\ndescarga de voces Piper"
+  reading: "ReadingPlaybackService\ntipo mediaPlayback\nwake lock parcial mientras suena"
 }
 
 muere: "No sobrevive al proceso:\nextracción a medias, audio y el visor PDF.\nLa caché evita repetir PdfBox al reabrir." {
@@ -23,5 +24,6 @@ muere: "No sobrevive al proceso:\nextracción a medias, audio y el visor PDF.\nL
 ui_thread.compose -> proceso.vm: StateFlow
 proceso.io -> proceso.cpu: texto de cada página
 proceso.vm -> muere
-proceso.audio -> muere
+proceso.audio -> servicio.reading: notificación y wake lock
+proceso.audio -> muere: si el proceso muere, el audio también
 servicio.download -> proceso.io: archivos en filesDir/models

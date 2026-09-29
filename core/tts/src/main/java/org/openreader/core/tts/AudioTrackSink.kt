@@ -3,7 +3,8 @@ package org.openreader.core.tts
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
-import android.os.Build
+import android.os.SystemClock
+import android.util.Log
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -48,11 +49,14 @@ class AudioTrackSink : AudioSink {
         track?.release()
         track = created
         created.play()
+        val headAtStart = created.playbackHeadPosition
 
         val chunk = ShortArray(2048)
         var offset = 0
         val total = buffer.pcm16.size
-        while (offset < total && !stopped && coroutineContext.isActive) {
+        var lastKick = 0L
+        var failed = false
+        while (offset < total && !stopped && !failed && coroutineContext.isActive) {
             while (paused && !stopped) {
                 delay(16)
             }
@@ -60,14 +64,19 @@ class AudioTrackSink : AudioSink {
             val remaining = total - offset
             val count = minOf(chunk.size, remaining)
             buffer.pcm16.copyInto(chunk, 0, offset, offset + count)
-            val written = created.write(chunk, 0, count)
+            val written = created.write(chunk, 0, count, AudioTrack.WRITE_NON_BLOCKING)
             if (written > 0) {
                 offset += written
                 notifyWord(buffer.text, offset, total, onProgress)
+            } else if (written == AudioTrack.ERROR_DEAD_OBJECT) {
+                failed = true
+            } else if (!stopped) {
+                lastKick = keepTrackPlaying(created, lastKick)
+                delay(20)
             }
         }
-        if (!stopped && coroutineContext.isActive) {
-            waitUntilDrained(created)
+        if (!failed && !stopped && coroutineContext.isActive) {
+            waitUntilDrained(created, headAtStart, offset)
         }
         created.stop()
         created.release()
@@ -113,14 +122,40 @@ class AudioTrackSink : AudioSink {
         onProgress(start, end)
     }
 
-    private suspend fun waitUntilDrained(created: AudioTrack) {
-        if (Build.VERSION.SDK_INT >= 23) {
-            while (created.playState == AudioTrack.PLAYSTATE_PLAYING && !stopped) {
+    /**
+     * Con la pantalla apagada el sistema puede dejar el track en pausa.
+     * Si aquí se interpreta eso como fin de buffer, se tira el audio que
+     * aún no sonó. Se espera a los frames escritos y se vuelve a dar play.
+     */
+    private suspend fun waitUntilDrained(created: AudioTrack, headAtStart: Int, framesWritten: Int) {
+        if (framesWritten <= 0) return
+        var lastKick = 0L
+        while (!stopped && coroutineContext.isActive) {
+            if (paused) {
                 delay(16)
-                if (created.playbackHeadPosition >= created.bufferSizeInFrames) break
+                continue
             }
-        } else {
-            delay(40)
+            if (playedSince(headAtStart, created.playbackHeadPosition) >= framesWritten) break
+            lastKick = keepTrackPlaying(created, lastKick)
+            delay(16)
         }
+    }
+
+    private fun keepTrackPlaying(created: AudioTrack, lastKick: Long): Long {
+        if (paused || stopped) return lastKick
+        if (created.playState == AudioTrack.PLAYSTATE_PLAYING) return lastKick
+        val now = SystemClock.uptimeMillis()
+        if (now - lastKick < 200L) return lastKick
+        Log.i(TAG, "El sistema pausó el audio; se reanuda el track")
+        runCatching { created.play() }
+        return now
+    }
+
+    private fun playedSince(start: Int, now: Int): Long {
+        return (now.toLong() - start.toLong()) and 0xffffffffL
+    }
+
+    private companion object {
+        const val TAG = "OpenReaderAudio"
     }
 }

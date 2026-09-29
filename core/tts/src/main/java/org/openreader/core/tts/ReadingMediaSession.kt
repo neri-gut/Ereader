@@ -1,6 +1,5 @@
 package org.openreader.core.tts
 
-import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
@@ -12,6 +11,7 @@ import android.media.session.PlaybackState
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.util.Log
 import org.openreader.core.model.AudioState
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -46,6 +46,7 @@ class ReadingMediaSession(
         .setWillPauseWhenDucked(false)
         .build()
     private val session = MediaSession(appContext, "OpenReader").apply {
+        ReadingForeground.token = sessionToken
         @Suppress("DEPRECATION")
         setFlags(
             MediaSession.FLAG_HANDLES_MEDIA_BUTTONS or
@@ -122,7 +123,8 @@ class ReadingMediaSession(
         main.post {
             abandonFocus()
             session.isActive = false
-            notifications.cancel(NOTIFICATION_ID)
+            ReadingForeground.sync(appContext, title, playing = false, active = false)
+            notifications.cancel(ReadingForeground.NOTIFICATION_ID)
             session.release()
         }
     }
@@ -132,14 +134,14 @@ class ReadingMediaSession(
         acquireFocus()
         session.setPlaybackState(playbackState(PlaybackState.STATE_PLAYING))
         session.isActive = true
-        notify(playing = true)
+        ReadingForeground.sync(appContext, title, playing = true, active = true)
     }
 
     private fun showPaused() {
         if (!resumeAfterTransientLoss) abandonFocus()
         session.setPlaybackState(playbackState(PlaybackState.STATE_PAUSED))
         session.isActive = true
-        notify(playing = false)
+        ReadingForeground.sync(appContext, title, playing = false, active = true)
     }
 
     private fun showIdle() {
@@ -147,10 +149,12 @@ class ReadingMediaSession(
         abandonFocus()
         session.setPlaybackState(playbackState(PlaybackState.STATE_STOPPED))
         session.isActive = false
-        notifications.cancel(NOTIFICATION_ID)
+        ReadingForeground.sync(appContext, title, playing = false, active = false)
+        notifications.cancel(ReadingForeground.NOTIFICATION_ID)
     }
 
     private fun onFocusChange(change: Int) {
+        Log.i(TAG, "cambio de foco $change")
         val justAcquired = SystemClock.uptimeMillis() - focusAcquiredAt < 800L
         if (justAcquired && change != AudioManager.AUDIOFOCUS_GAIN) return
         when (change) {
@@ -202,24 +206,11 @@ class ReadingMediaSession(
             .build()
     }
 
-    private fun notify(playing: Boolean) {
-        val notification = Notification.Builder(appContext, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_stat_reading)
-            .setContentTitle(title)
-            .setContentText(if (playing) "Leyendo" else "En pausa")
-            .setOngoing(playing)
-            .setVisibility(Notification.VISIBILITY_PUBLIC)
-            .setCategory(Notification.CATEGORY_TRANSPORT)
-            .setStyle(Notification.MediaStyle().setMediaSession(session.sessionToken))
-            .build()
-        runCatching { notifications.notify(NOTIFICATION_ID, notification) }
-    }
-
     private companion object {
         const val CHANNEL_ID = "openreader_reading"
-        const val NOTIFICATION_ID = 43
         const val MODE_IDLE = 0
         const val MODE_PLAYING = 1
         const val MODE_PAUSED = 2
+        const val TAG = "OpenReaderAudio"
     }
 }
